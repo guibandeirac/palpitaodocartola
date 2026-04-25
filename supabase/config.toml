@@ -1,0 +1,10 @@
+project_id = "bbpljsngllzchffofgjd"
+
+[functions.calcular-parciais]
+verify_jwt = false
+
+[functions.calcular-parciais-copa]
+verify_jwt = false
+
+[functions.proxy-cartola]
+verify_jwt = false

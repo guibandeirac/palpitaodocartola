@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/guiba/.claude/**)",
+      "Read(//c/Users/guiba/**)",
+      "Read(//c/Users/guiba/.config/**)",
+      "Read(//c/Users/guiba/AppData/Roaming/**)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('mcpServers',{}\\),indent=2\\)\\)\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); p=d.get\\('projects',{}\\); [print\\(k,':',json.dumps\\(list\\(v.get\\('mcpServers',{}\\).keys\\(\\)\\) if isinstance\\(v,dict\\) else v,indent=2\\)\\) for k,v in p.items\\(\\)]\")",
+      "Bash(python *)",
+      "PowerShell($j = Get-Content C:\\\\Users\\\\guiba\\\\.claude.json -Raw | ConvertFrom-Json; Write-Output \"Global mcpServers:\"; if \\($j.mcpServers\\) { $j.mcpServers.PSObject.Properties.Name } else { \"none\" }; Write-Output \"---\"; Write-Output \"Projects with mcpServers:\"; foreach \\($p in $j.projects.PSObject.Properties\\) { if \\($p.Value.mcpServers\\) { Write-Output \"$\\($p.Name\\): $\\($p.Value.mcpServers.PSObject.Properties.Name -join ', '\\)\" } })",
+      "PowerShell($j = Get-Content C:\\\\Users\\\\guiba\\\\.claude.json -Raw | ConvertFrom-Json; $j.mcpServers | ConvertTo-Json -Depth 10)",
+      "mcp__supabase__list_tables",
+      "PowerShell(Copy-Item *)",
+      "Bash(curl *)",
+      "PowerShell(Out-File *)",
+      "PowerShell($sql = [System.IO.File]::ReadAllText\\('C:\\\\Users\\\\guiba\\\\OneDrive\\\\Documentos\\\\grupopalpitao-main\\\\supabase\\\\migrations\\\\20260424160018_rls_admin_only.sql'\\); $body = @{ query = [string]$sql } | ConvertTo-Json -Compress; [System.IO.File]::WriteAllText\\('C:\\\\Users\\\\guiba\\\\AppData\\\\Local\\\\Temp\\\\rls_payload.json', $body, \\(New-Object System.Text.UTF8Encoding\\($false\\)\\)\\); Write-Output \"Size: $\\($body.Length\\)\"; Write-Output \"First 120 chars:\"; $body.Substring\\(0, [Math]::Min\\(120, $body.Length\\)\\))",
+      "Bash(npx tsc *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(bun install *)",
+      "mcp__supabase__execute_sql",
+      "Bash(bunx tsc *)",
+      "Bash(npm run *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node /tmp/parse_xlsx.js)",
+      "Bash(where node *)",
+      "Bash(mv parse_xlsx.js parse_xlsx.cjs)",
+      "Bash(node parse_xlsx.cjs)",
+      "Bash(node dump_strings.cjs)",
+      "Bash(grep -o '<row r=\"2\"[^>]*>.\\\\{0,1500\\\\}' \"C:/Users/guiba/OneDrive/Documentos/grupopalpitao-main/tmp_parse/xlsx/xl/worksheets/sheet1.xml\")",
+      "Bash(grep -oE '<row r=\"1\"[^>]*>.{0,2000}' \"C:/Users/guiba/OneDrive/Documentos/grupopalpitao-main/tmp_parse/xlsx/xl/worksheets/sheet1.xml\")",
+      "Bash(grep -oE '<row r=\"3\"[^>]*>.{0,2000}' \"C:/Users/guiba/OneDrive/Documentos/grupopalpitao-main/tmp_parse/xlsx/xl/worksheets/sheet1.xml\")",
+      "Bash(node parse2.cjs)",
+      "Bash(awk NR>=89 && NR<=110 *)",
+      "Bash(bun run *)"
+    ]
+  }
+}

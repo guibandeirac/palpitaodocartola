@@ -1,0 +1,1 @@
+UPDATE equipes SET serie = 'B' WHERE nome IN ('Inter de Limão', 'Futbreja', 'Al Bilal', 'Galácticos', 'Lazionados', 'Brutus');

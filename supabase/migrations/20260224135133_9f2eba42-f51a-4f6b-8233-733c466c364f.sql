@@ -1,0 +1,12 @@
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/albilal.png' WHERE nome = 'Al Bilal';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/galacticos.png' WHERE nome = 'Galácticos';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/lazionados.png' WHERE nome = 'Lazionados';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/interdelimao.png' WHERE nome = 'Inter de Limão';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/brutus.png' WHERE nome = 'Brutus';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/futbreja.png' WHERE nome = 'Futbreja';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/dynamo.png' WHERE nome = 'Dynamo';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/jumentus.png' WHERE nome = 'Jumentus';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/bailedemunique.png' WHERE nome = 'Baile de Munique';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/legends.png' WHERE nome = 'Legends';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/malfica.png' WHERE nome = 'Malfica';
+UPDATE equipes SET logo_url = 'https://bbpljsngllzchffofgjd.supabase.co/storage/v1/object/public/logos/botafofo.png' WHERE nome = 'Botafofo';
