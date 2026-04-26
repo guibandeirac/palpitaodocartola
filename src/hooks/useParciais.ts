@@ -6,6 +6,7 @@ export interface AtletaDetalhe {
   clube: string;
   posicao: string;
   posicao_id: number;
+  foto: string | null;
   pontuacao: number;
   pontuacao_base: number;
   eh_capitao: boolean;
@@ -20,6 +21,7 @@ export interface ReservaDetalhe {
   clube: string;
   posicao: string;
   posicao_id: number;
+  foto: string | null;
   pontuacao: number | null;
   entrou_em_campo: boolean;
   eh_reserva_luxo: boolean;

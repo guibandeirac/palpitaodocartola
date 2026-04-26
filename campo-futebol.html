@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Campo de Futebol — Escalação</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #020617;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px 0;
+    color: white;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== CAMPO ===== */
+  .field-wrap {
+    padding: 0 12px;
+  }
+  .field {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    aspect-ratio: 2 / 3;
+  }
+  .field-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .rows {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px 0;
+    z-index: 2;
+  }
+  .row {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 0 8px;
+  }
+  .row-gk {
+    justify-content: center;
+    position: relative;
+    padding: 0 12px;
+  }
+  .row-gk .coach {
+    position: absolute;
+    right: 12px;
+    top: 0;
+  }
+
+  /* ===== PLAYER CARD ===== */
+  .player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+  .player-name {
+    background: #0b1c3a;
+    border: 1px solid #1e3464;
+    border-radius: 6px;
+    padding: 2px 8px;
+    max-width: 78px;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .player.small .player-name { max-width: 64px; }
+
+  .jersey-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(to bottom, #1e3464, #0b1c3a);
+    border: 2.5px solid rgba(59, 130, 246, 0.8);
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .player.small .jersey-circle {
+    width: 48px;
+    height: 48px;
+    padding: 5px;
+  }
+  .jersey-svg { width: 100%; height: 100%; display: block; }
+
+  .badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #0b1c3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .badge-captain {
+    background: #3b82f6;
+    color: white;
+  }
+  .badge-reserve {
+    background: #f97316;
+    color: white;
+    width: 24px;
+    height: 24px;
+    top: -4px;
+    right: -4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .player-score {
+    background: #0b1c3a;
+    border: 1px solid #1e3464;
+    border-radius: 4px;
+    padding: 1px 8px;
+    min-width: 44px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* ===== RESERVAS ===== */
+  .reserves {
+    padding: 16px 12px 12px;
+  }
+  .reserves-title {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .reserves-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- CAMPO -->
+  <main class="field-wrap">
+    <div class="field">
+      <svg class="field-bg" viewBox="0 0 400 600" preserveAspectRatio="none">
+        <defs>
+          <pattern id="grass" patternUnits="userSpaceOnUse" width="400" height="60">
+            <rect width="400" height="60" fill="#16a34a"/>
+            <rect width="400" height="30" fill="#15803d"/>
+          </pattern>
+        </defs>
+        <rect width="400" height="600" fill="url(#grass)"/>
+
+        <rect x="8" y="8" width="384" height="584" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+
+        <line x1="8" y1="300" x2="392" y2="300" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <circle cx="200" cy="300" r="55" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <circle cx="200" cy="300" r="3" fill="white" opacity="0.85"/>
+
+        <rect x="100" y="8" width="200" height="80" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <rect x="150" y="8" width="100" height="30" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <circle cx="200" cy="65" r="3" fill="white" opacity="0.85"/>
+        <path d="M 165 88 A 40 40 0 0 0 235 88" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+
+        <rect x="100" y="512" width="200" height="80" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <rect x="150" y="562" width="100" height="30" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+        <circle cx="200" cy="535" r="3" fill="white" opacity="0.85"/>
+        <path d="M 165 512 A 40 40 0 0 1 235 512" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+
+        <path d="M 8 18 A 10 10 0 0 1 18 8" fill="none" stroke="white" stroke-width="2" opacity="0.85"/>
+        <path d="M 392 18 A 10 10 0 0 0 382 8" fill="none" stroke="white" stroke-width="2" opacity="0.85"/>
+        <path d="M 8 582 A 10 10 0 0 0 18 592" fill="none" stroke="white" stroke-width="2" opacity="0.85"/>
+        <path d="M 392 582 A 10 10 0 0 1 382 592" fill="none" stroke="white" stroke-width="2" opacity="0.85"/>
+      </svg>
+
+      <div class="rows" id="rows"></div>
+    </div>
+  </main>
+
+  <!-- RESERVAS -->
+  <section class="reserves">
+    <h3 class="reserves-title">Reservas</h3>
+    <div class="reserves-row" id="reserves"></div>
+  </section>
+</div>
+
+<script>
+const LINEUP = {
+  forwards: [
+    { name: 'Calleri', score: 2.70 },
+    { name: 'Pedro',   score: null },
+    { name: 'Viveros', score: null, captain: true },
+  ],
+  midfielders: [
+    { name: 'Danilo',     score: 19.90 },
+    { name: 'Jean Lucas', score: 2.20  },
+    { name: 'Savarino',   score: null  },
+  ],
+  defenders: [
+    { name: 'Guilherme...', score: null  },
+    { name: 'Freytes',      score: null  },
+    { name: 'Sabino',       score: 5.90  },
+    { name: 'Luciano Juba', score: 10.50 },
+  ],
+  goalkeeper: { name: 'Hugo Souza',   score: null },
+  coach:      { name: 'Luis Zubel...', score: null },
+};
+
+const RESERVES = [
+  { name: 'Fábio' },
+  { name: 'Esquivel' },
+  { name: 'Maicon' },
+  { name: 'Hércules' },
+  { name: 'Canobbio', badge: '55' },
+];
+
+const JERSEY_SVG = `
+  <svg class="jersey-svg" viewBox="0 0 100 110">
+    <path d="M20,15 L35,5 Q50,15 65,5 L80,15 L95,25 L88,40 L78,35 L78,95 Q78,100 73,100 L27,100 Q22,100 22,95 L22,35 L12,40 L5,25 Z"
+          fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <path d="M35,5 Q50,15 65,5 L62,12 Q50,20 38,12 Z" fill="#e2e8f0"/>
+  </svg>
+`;
+
+function renderPlayer(p, small = false) {
+  const score = p.score !== null && p.score !== undefined
+    ? p.score.toFixed(2).replace('.', ',')
+    : '-';
+
+  let badgeHtml = '';
+  if (p.captain) {
+    badgeHtml = '<div class="badge badge-captain">C</div>';
+  } else if (p.badge) {
+    badgeHtml = `<div class="badge badge-reserve">${p.badge}</div>`;
+  }
+
+  const scoreHtml = small ? '' : `<div class="player-score">${score}</div>`;
+
+  return `
+    <div class="player ${small ? 'small' : ''}">
+      <div class="player-name">${p.name}</div>
+      <div class="jersey-circle">
+        ${JERSEY_SVG}
+        ${badgeHtml}
+      </div>
+      ${scoreHtml}
+    </div>
+  `;
+}
+
+function renderRow(players, extraClass = '') {
+  return `<div class="row ${extraClass}">${players.map(p => renderPlayer(p)).join('')}</div>`;
+}
+
+function renderGoalkeeperRow() {
+  const gk = renderPlayer(LINEUP.goalkeeper);
+  const coach = `<div class="coach">${renderPlayer(LINEUP.coach)}</div>`;
+  return `<div class="row row-gk">${gk}${coach}</div>`;
+}
+
+document.getElementById('rows').innerHTML =
+  renderRow(LINEUP.forwards) +
+  renderRow(LINEUP.midfielders) +
+  renderRow(LINEUP.defenders) +
+  renderGoalkeeperRow();
+
+document.getElementById('reserves').innerHTML =
+  RESERVES.map(p => renderPlayer(p, true)).join('');
+</script>
+</body>
+</html>

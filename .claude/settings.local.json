@@ -32,7 +32,8 @@
       "Bash(grep -oE '<row r=\"3\"[^>]*>.{0,2000}' \"C:/Users/guiba/OneDrive/Documentos/grupopalpitao-main/tmp_parse/xlsx/xl/worksheets/sheet1.xml\")",
       "Bash(node parse2.cjs)",
       "Bash(awk NR>=89 && NR<=110 *)",
-      "Bash(bun run *)"
+      "Bash(bun run *)",
+      "Bash(npx supabase *)"
     ]
   }
 }

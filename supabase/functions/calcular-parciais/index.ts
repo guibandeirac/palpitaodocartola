@@ -17,6 +17,7 @@ interface AtletaPontuado {
   entrou_em_campo: boolean;
   posicao_id: number;
   clube_id: number;
+  foto?: string;
   scout?: Record<string, number>;
 }
 
@@ -31,6 +32,7 @@ interface AtletaTime {
   posicao_id: number;
   entrou_em_campo?: boolean;
   clube_id?: number;
+  foto?: string;
 }
 
 interface TimeCartola {
@@ -204,6 +206,7 @@ serve(async (req) => {
 
     // Build a global apelido map from team data (to avoid showing numeric IDs)
     const apelidoMap = new Map<number, string>();
+    const fotoMap = new Map<number, string>();
 
     for (const [jogadorId, jogador] of todosJogadores) {
       try {
@@ -218,12 +221,14 @@ serve(async (req) => {
           const pontosCamp = data.pontos_campeonato ?? 0;
           pontosCampeonatoMap.set(jogadorId, arredondar2Decimais(pontosCamp));
 
-          // Store apelidos from team athletes and reserves
+          // Store apelidos and fotos from team athletes and reserves
           for (const a of (data.atletas || [])) {
             if (a.apelido) apelidoMap.set(a.atleta_id, a.apelido);
+            if (a.foto) fotoMap.set(a.atleta_id, a.foto);
           }
           for (const r of (data.reservas || [])) {
             if (r.apelido) apelidoMap.set(r.atleta_id, r.apelido);
+            if (r.foto) fotoMap.set(r.atleta_id, r.foto);
           }
 
           if (escalou) {
@@ -247,9 +252,10 @@ serve(async (req) => {
       }
     }
 
-    // Also store apelidos from pontuados
+    // Also store apelidos and fotos from pontuados
     for (const [atletaId, atleta] of Object.entries(atletasPontuados)) {
       if (atleta.apelido) apelidoMap.set(Number(atletaId), atleta.apelido);
+      if (atleta.foto) fotoMap.set(Number(atletaId), atleta.foto);
     }
     // 7. Calculate partial score for each player's Cartola team
     const pontuacoesParciais = new Map<string, { pontuacao: number; escalou: boolean; detalhes: any }>();
@@ -267,7 +273,7 @@ serve(async (req) => {
         continue;
       }
 
-      const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap);
+      const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
       pontuacoesParciais.set(jogadorId, {
         pontuacao: arredondar2Decimais(resultado.total),
         escalou: true,
@@ -416,7 +422,8 @@ function calcularPontuacaoTime(
   clubesComJogoIniciado: Set<number>,
   clubesJogoInvalido: Set<number>,
   clubeAbreviacao: Map<number, string>,
-  apelidoMap: Map<number, string>
+  apelidoMap: Map<number, string>,
+  fotoMap: Map<number, string>
 ): { total: number; jogadoresAtivos: JogadorAtivo[]; atletasDetalhados: any[]; reservasDetalhados: any[] } {
   const capitaoId = time.capitao_id;
   const reservaLuxoId = time.reserva_luxo_id;
@@ -578,12 +585,14 @@ function calcularPontuacaoTime(
       ? arredondar2Decimais(t.pontuacao / 1.5)
       : arredondar2Decimais(t.pontuacao);
     const pontuacaoFinal = arredondar2Decimais(t.pontuacao);
+    const foto = fotoMap.get(t.atleta_id) || (originalId ? fotoMap.get(originalId) : null) || null;
 
     return {
       nome,
       clube,
       posicao,
       posicao_id: t.posicao_id,
+      foto,
       pontuacao: pontuacaoFinal,
       pontuacao_base: pontuacaoBase,
       eh_capitao: t.eh_capitao,
@@ -613,11 +622,14 @@ function calcularPontuacaoTime(
       status = "nao_entrou";
     }
 
+    const foto = fotoMap.get(r.atleta_id) || null;
+
     return {
       nome,
       clube,
       posicao,
       posicao_id: r.posicao_id,
+      foto,
       pontuacao: pontuado ? arredondar2Decimais(pontuado.pontuacao) : null,
       entrou_em_campo: pontuado?.entrou_em_campo || false,
       eh_reserva_luxo: ehLuxo,
