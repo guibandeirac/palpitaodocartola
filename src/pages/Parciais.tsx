@@ -25,8 +25,8 @@ const Parciais = () => {
   const { data, isLoading, error, fetchParciais, autoRefresh, toggleAutoRefresh } = useParciais();
   const [selectedRodada, setSelectedRodada] = useState<string | null>(null);
 
-  // Filter only rodadas with status 'em_andamento'
-  const rodadasEmAndamento = rodadas.filter((r) => r.status === "em_andamento");
+  // Filter only rodadas with status_b 'em_andamento' (Série B)
+  const rodadasEmAndamento = rodadas.filter((r) => r.status_b === "em_andamento");
 
   const equipeSerieBIds = useMemo(
     () => new Set(equipesSerieB.map((e) => e.id)),

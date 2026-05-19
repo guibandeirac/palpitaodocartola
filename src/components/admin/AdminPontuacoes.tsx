@@ -21,6 +21,7 @@ import {
   serieTemClassificacao,
   Serie,
 } from "@/lib/classificacao";
+import { calcularVencedor } from "@/lib/pontuacao";
 
 interface LogEntry {
   type: "info" | "success" | "warning" | "error";
@@ -212,24 +213,21 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
         const finalP1 = efetivo1Id ? (pontuacoes.get(efetivo1Id) ?? p1) : p1;
         const finalP2 = efetivo2Id ? (pontuacoes.get(efetivo2Id) ?? p2) : p2;
 
-        let vencedor: string | null = null;
-        if (finalP1 > finalP2) vencedor = "jogador1";
-        else if (finalP2 > finalP1) vencedor = "jogador2";
-        else vencedor = "empate";
+        const vencedor = calcularVencedor(finalP1, finalP2);
 
+        // efetivo_id sempre reflete o estado atual: coringa quando substitui,
+        // jogador original caso contrário. Isso evita carregar valores antigos
+        // de uma execução anterior (ex.: rodar de novo após corrigir a regra
+        // do coringa não-escalado deve voltar a mostrar o jogador original).
         const updateData: any = {
           pontuacao_jogador1: finalP1,
           pontuacao_jogador2: finalP2,
           vencedor,
+          jogador1_efetivo_id:
+            (ci as any)._coringa_efetivo1_id ?? (ci as any).jogador1_original_id ?? null,
+          jogador2_efetivo_id:
+            (ci as any)._coringa_efetivo2_id ?? (ci as any).jogador2_original_id ?? null,
         };
-
-        // If coringa substituted, update efetivo_id
-        if ((ci as any)._coringa_efetivo1_id) {
-          updateData.jogador1_efetivo_id = (ci as any)._coringa_efetivo1_id;
-        }
-        if ((ci as any)._coringa_efetivo2_id) {
-          updateData.jogador2_efetivo_id = (ci as any)._coringa_efetivo2_id;
-        }
 
         await supabase
           .from("confrontos_individuais")
@@ -270,8 +268,12 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
         addLog("success", `Confronto: ${vitoriasE1} x ${vitoriasE2} → ${resultado}`);
       }
 
-      // 8. Update rodada status
-      await supabase.from("rodadas").update({ status: "em_andamento" }).eq("id", selectedRodada);
+      // 8. Update rodada status — só da série corrente (A ou B independentes).
+      const statusCol = serie === "A" ? "status_a" : "status_b";
+      await supabase
+        .from("rodadas")
+        .update({ [statusCol]: "em_andamento" })
+        .eq("id", selectedRodada);
 
       // 9. Recalcular classificação automaticamente
       addLog("info", "Recalculando classificação...");
@@ -305,6 +307,13 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
     if (!coringa) return;
 
     const pontosCoringa = pontuacoes.get(coringa.id_cartola) ?? 0;
+
+    // Coringa que não escalou nunca substitui ninguém.
+    const coringaEscalou = escalouMap.get(coringa.id_cartola) ?? false;
+    if (!coringaEscalou) {
+      addLog("info", `🃏 Coringa ${coringa.nome} não escalou — não substitui ninguém`);
+      return;
+    }
 
     const originalKey = lado === "jogador1" ? "jogador1_original" : "jogador2_original";
     const titulares = confrontosIndividuais
@@ -374,11 +383,14 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
     setIsFinalizing(true);
 
     try {
-      addLog("info", `Finalizando Rodada ${rodada.numero}...`);
+      addLog("info", `Finalizando Rodada ${rodada.numero} da Série ${serie}...`);
 
+      // Finalizar afeta APENAS a série corrente. As séries A e B têm status
+      // independentes (status_a / status_b) — finalizar B não toca em A.
+      const statusCol = serie === "A" ? "status_a" : "status_b";
       const { error: statusError } = await supabase
         .from("rodadas")
-        .update({ status: "finalizada" })
+        .update({ [statusCol]: "finalizada" })
         .eq("id", selectedRodada);
 
       if (statusError) throw statusError;
@@ -429,11 +441,14 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
                 <SelectValue placeholder="Selecione a rodada" />
               </SelectTrigger>
               <SelectContent>
-                {rodadas.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    Rodada {r.numero} (Cartola {r.rodada_cartola}) - {r.status}
-                  </SelectItem>
-                ))}
+                {rodadas.map((r) => {
+                  const statusSerie = serie === "A" ? r.status_a : r.status_b;
+                  return (
+                    <SelectItem key={r.id} value={r.id}>
+                      Rodada {r.numero} (Cartola {r.rodada_cartola}) - {statusSerie}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -449,7 +464,7 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
           {temClassificacao && (
             <Button
               onClick={handleFinalizarRodada}
-              disabled={isFinalizing || !selectedRodada || rodadaSelecionada?.status === "finalizada"}
+              disabled={isFinalizing || !selectedRodada || rodadaSelecionada?.status_b === "finalizada"}
               variant="outline"
               className="min-w-[180px]"
             >

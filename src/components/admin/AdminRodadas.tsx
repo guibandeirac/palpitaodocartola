@@ -55,6 +55,8 @@ export function AdminRodadas({ serie }: AdminRodadasProps) {
         numero: parseInt(novaRodadaNumero),
         rodada_cartola: parseInt(novaRodadaCartola),
         status: "pendente",
+        status_a: "pendente",
+        status_b: "pendente",
       });
 
       if (error) throw error;
@@ -75,12 +77,14 @@ export function AdminRodadas({ serie }: AdminRodadasProps) {
   };
 
   const handleAlterarStatus = async (rodadaId: string, novoStatus: string) => {
+    const statusCol = serie === "A" ? "status_a" : "status_b";
+
     if (novoStatus === "finalizada") {
       setIsFinalizando(true);
       try {
         const { error } = await supabase
           .from("rodadas")
-          .update({ status: "finalizada" })
+          .update({ [statusCol]: "finalizada" })
           .eq("id", rodadaId);
         if (error) throw error;
 
@@ -115,12 +119,12 @@ export function AdminRodadas({ serie }: AdminRodadasProps) {
     try {
       const { error } = await supabase
         .from("rodadas")
-        .update({ status: novoStatus })
+        .update({ [statusCol]: novoStatus })
         .eq("id", rodadaId);
 
       if (error) throw error;
 
-      toast({ title: "Sucesso", description: "Status atualizado!" });
+      toast({ title: "Sucesso", description: `Status da Série ${serie} atualizado!` });
       queryClient.invalidateQueries({ queryKey: ["rodadas"] });
     } catch (error: any) {
       toast({
@@ -153,8 +157,8 @@ export function AdminRodadas({ serie }: AdminRodadasProps) {
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
           {temClassificacao
-            ? `Rodadas são compartilhadas com a outra série. Ao finalizar, a classificação da Série ${serie} é recalculada automaticamente.`
-            : `Rodadas são compartilhadas com a outra série. A Série ${serie} é somente ao vivo — sem classificação acumulada.`}
+            ? `Status da Série ${serie} é independente da outra série. Ao finalizar, a classificação é recalculada automaticamente.`
+            : `Status da Série ${serie} é independente da outra série. Série A é somente ao vivo — não tem o estado "Finalizada".`}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -197,29 +201,34 @@ export function AdminRodadas({ serie }: AdminRodadasProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rodadas.map((rodada) => (
-              <TableRow key={rodada.id} className="border-border">
-                <TableCell className="font-medium">Rodada {rodada.numero}</TableCell>
-                <TableCell>{rodada.rodada_cartola}</TableCell>
-                <TableCell>{getStatusBadge(rodada.status)}</TableCell>
-                <TableCell>
-                  <Select
-                    value={rodada.status || "pendente"}
-                    onValueChange={(value) => handleAlterarStatus(rodada.id, value)}
-                    disabled={isFinalizando}
-                  >
-                    <SelectTrigger className="w-40 bg-secondary">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                      <SelectItem value="finalizada">Finalizada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-              </TableRow>
-            ))}
+            {rodadas.map((rodada) => {
+              const statusSerie = serie === "A" ? rodada.status_a : rodada.status_b;
+              return (
+                <TableRow key={rodada.id} className="border-border">
+                  <TableCell className="font-medium">Rodada {rodada.numero}</TableCell>
+                  <TableCell>{rodada.rodada_cartola}</TableCell>
+                  <TableCell>{getStatusBadge(statusSerie)}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={statusSerie || "pendente"}
+                      onValueChange={(value) => handleAlterarStatus(rodada.id, value)}
+                      disabled={isFinalizando}
+                    >
+                      <SelectTrigger className="w-40 bg-secondary">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                        {temClassificacao && (
+                          <SelectItem value="finalizada">Finalizada</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {rodadas.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">

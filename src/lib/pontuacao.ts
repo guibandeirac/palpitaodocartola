@@ -14,3 +14,14 @@ export function formatarPontuacao(valor: number | null | undefined): string {
 
 // Alias mantido para compatibilidade
 export const truncar2Decimais = arredondar2Decimais;
+
+// Determina o vencedor de um confronto individual com base nas pontuações.
+// Retorna "jogador1", "jogador2" ou null para empate — nunca a string "empate".
+export function calcularVencedor(
+  pontos1: number,
+  pontos2: number
+): "jogador1" | "jogador2" | null {
+  if (pontos1 > pontos2) return "jogador1";
+  if (pontos2 > pontos1) return "jogador2";
+  return null;
+}

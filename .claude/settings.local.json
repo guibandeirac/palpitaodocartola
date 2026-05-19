@@ -33,7 +33,25 @@
       "Bash(node parse2.cjs)",
       "Bash(awk NR>=89 && NR<=110 *)",
       "Bash(bun run *)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(dir C:\\\\Users\\\\guiba\\\\OneDrive\\\\Documentos\\\\grupopalpitao-main *)",
+      "Bash(dir C:\\\\Users\\\\guiba\\\\OneDrive\\\\Documentos\\\\grupopalpitao-main\\\\src *)",
+      "mcp__supabase__apply_migration",
+      "Bash(echo \"EXIT=$?\")",
+      "mcp__supabase__list_edge_functions",
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('C:/Users/guiba/OneDrive/Documentos/grupopalpitao-main/supabase/functions/calcular-parciais/index.ts', 'utf8'\\); process.stdout.write\\(JSON.stringify\\({content}\\)\\);\")",
+      "Read(//tmp/**)",
+      "mcp__supabase__deploy_edge_function",
+      "mcp__supabase__get_project_url",
+      "Bash(npm install *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const p=JSON.parse\\(d\\);console.log\\('deps:',Object.keys\\(p.dependencies||{}\\)\\);console.log\\('devdeps:',Object.keys\\(p.devDependencies||{}\\)\\);\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('deps:',Object.keys\\(p.dependencies||{}\\)\\);console.log\\('devdeps:',Object.keys\\(p.devDependencies||{}\\)\\);\")",
+      "Bash(node import_rodadas.cjs)",
+      "Bash(xargs grep -l \"insert\\\\|update\")",
+      "Bash(npm test *)",
+      "Skill(update-config)",
+      "PowerShell($j = Get-Content \"C:\\\\Users\\\\guiba\\\\.claude.json\" -Raw | ConvertFrom-Json; $j.mcpServers | ConvertTo-Json -Depth 10)"
     ]
   }
 }

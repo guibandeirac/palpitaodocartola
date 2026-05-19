@@ -85,10 +85,12 @@ export async function recalcularClassificacao(
     }
   }
 
+  // Apenas Série B tem classificação acumulada — usa status_b independente.
+  const statusCol = serie === "A" ? "status_a" : "status_b";
   const { data: rodadasFin } = await supabase
     .from("rodadas")
     .select("id, numero")
-    .eq("status", "finalizada")
+    .eq(statusCol, "finalizada")
     .order("numero", { ascending: true });
 
   const stats = new Map<

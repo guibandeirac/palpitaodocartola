@@ -174,11 +174,11 @@ export function AdminResultados() {
     try {
       addLog("info", "Iniciando recálculo completo da classificação...");
 
-      // 1. Buscar todas as rodadas finalizadas
+      // 1. Buscar rodadas finalizadas da Série B (única com classificação acumulada)
       const { data: rodadasFinalizadas } = await supabase
         .from("rodadas")
         .select("id, numero")
-        .eq("status", "finalizada");
+        .eq("status_b", "finalizada");
 
       addLog("info", `Encontradas ${rodadasFinalizadas?.length || 0} rodadas finalizadas`);
 
@@ -348,7 +348,7 @@ export function AdminResultados() {
                 <SelectContent>
                   {rodadas.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      Rodada {r.numero} - {r.status}
+                      Rodada {r.numero} - {r.status_b}
                     </SelectItem>
                   ))}
                 </SelectContent>

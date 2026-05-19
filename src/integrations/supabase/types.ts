@@ -585,6 +585,8 @@ export type Database = {
           numero: number
           rodada_cartola: number | null
           status: string | null
+          status_a: string
+          status_b: string
         }
         Insert: {
           created_at?: string | null
@@ -592,6 +594,8 @@ export type Database = {
           numero: number
           rodada_cartola?: number | null
           status?: string | null
+          status_a?: string
+          status_b?: string
         }
         Update: {
           created_at?: string | null
@@ -599,6 +603,8 @@ export type Database = {
           numero?: number
           rodada_cartola?: number | null
           status?: string | null
+          status_a?: string
+          status_b?: string
         }
         Relationships: []
       }

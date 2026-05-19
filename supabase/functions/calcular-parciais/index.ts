@@ -231,7 +231,10 @@ serve(async (req) => {
             if (r.foto) fotoMap.set(r.atleta_id, r.foto);
           }
 
-          if (escalou) {
+          // Mesmo que o jogador não tenha escalado nesta rodada, o time da
+          // última escalação continua valendo no Cartola — então guardamos
+          // sempre, para conseguir somar a parcial dele do mesmo jeito.
+          if ((data.atletas || []).length > 0) {
             timesCartola.set(jogadorId, {
               atletas: data.atletas || [],
               reservas: data.reservas || [],
@@ -262,21 +265,16 @@ serve(async (req) => {
 
     for (const [jogadorId, jogador] of todosJogadores) {
       const escalou = escalouMap.get(jogadorId) || false;
-      if (!escalou) {
-        pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
-        continue;
-      }
-
       const time = timesCartola.get(jogadorId);
       if (!time) {
-        pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
+        pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou, detalhes: null });
         continue;
       }
 
       const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
       pontuacoesParciais.set(jogadorId, {
         pontuacao: arredondar2Decimais(resultado.total),
-        escalou: true,
+        escalou,
         detalhes: resultado,
       });
     }
@@ -654,6 +652,10 @@ function aplicarCoringa(
 
   const pontuacaoCoringa = pontuacoesParciais.get(coringa.id);
   if (!pontuacaoCoringa) return subs;
+
+  // Coringa que não escalou nunca substitui ninguém — independente de
+  // jogadores não escalados ou de pontuação negativa do menor pontuador.
+  if (!pontuacaoCoringa.escalou) return subs;
 
   const pontosCoringa = arredondar2Decimais(pontuacaoCoringa.pontuacao);
 

@@ -15,11 +15,11 @@ export function usePontuacaoEquipes(serie?: string) {
   return useQuery({
     queryKey: ["pontuacao-equipes", serie],
     queryFn: async () => {
-      // 1. Buscar rodadas finalizadas
+      // 1. Buscar rodadas finalizadas (Série B — única série com classificação)
       const { data: rodadas, error: rodadasError } = await supabase
         .from("rodadas")
         .select("id, numero")
-        .eq("status", "finalizada")
+        .eq("status_b", "finalizada")
         .order("numero", { ascending: true });
 
       if (rodadasError) throw rodadasError;

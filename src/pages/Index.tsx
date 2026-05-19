@@ -42,15 +42,15 @@ const Index = () => {
     [confrontosTodos, equipeSerieBIds]
   );
 
-  // Filter public rodadas: only em_andamento or finalizada
-  const publicRodadas = rodadas.filter(r => r.status === "em_andamento" || r.status === "finalizada");
+  // Filter public rodadas: only em_andamento or finalizada (Série B)
+  const publicRodadas = rodadas.filter(r => r.status_b === "em_andamento" || r.status_b === "finalizada");
 
   // Auto-select: em_andamento > última finalizada
   useEffect(() => {
     if (publicRodadas.length > 0 && !selectedRodada) {
-      const emAndamento = publicRodadas.find(r => r.status === "em_andamento");
+      const emAndamento = publicRodadas.find(r => r.status_b === "em_andamento");
       if (emAndamento) { setSelectedRodada(emAndamento.id); return; }
-      const finalizadas = publicRodadas.filter(r => r.status === "finalizada");
+      const finalizadas = publicRodadas.filter(r => r.status_b === "finalizada");
       if (finalizadas.length > 0) { setSelectedRodada(finalizadas[finalizadas.length - 1].id); return; }
     }
   }, [publicRodadas, selectedRodada]);
