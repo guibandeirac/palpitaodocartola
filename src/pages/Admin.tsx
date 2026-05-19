@@ -11,9 +11,11 @@ import { AdminCopaClassificacao } from "@/components/admin/AdminCopaClassificaca
 import { AdminCopaGerenciar } from "@/components/admin/AdminCopaGerenciar";
 import { AdminCopaPlayoffs } from "@/components/admin/AdminCopaPlayoffs";
 import { AdminLogin } from "@/components/admin/AdminLogin";
+import { AdminResumoSerieB } from "@/components/admin/AdminResumoSerieB";
+import { AdminResumoCopa } from "@/components/admin/AdminResumoCopa";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, ArrowLeft, Calendar, Swords, RefreshCw, Users, LogOut, Calculator, Loader2 } from "lucide-react";
+import { Trophy, ArrowLeft, Calendar, Swords, RefreshCw, Users, LogOut, Calculator, Loader2, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Serie } from "@/lib/classificacao";
 
@@ -64,6 +66,12 @@ function SerieTabs({ serie }: { serie: Serie }) {
           <RefreshCw className="h-4 w-4" />
           Pontuações
         </TabsTrigger>
+        {serie === "B" && (
+          <TabsTrigger value="resumo" className="gap-2">
+            <FileDown className="h-4 w-4" />
+            Resumo
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="rodadas">
@@ -79,6 +87,11 @@ function SerieTabs({ serie }: { serie: Serie }) {
       <TabsContent value="pontuacoes">
         <AdminPontuacoes serie={serie} />
       </TabsContent>
+      {serie === "B" && (
+        <TabsContent value="resumo">
+          <AdminResumoSerieB />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }
@@ -107,6 +120,10 @@ function CopaTabs() {
           <Trophy className="h-4 w-4" />
           Playoffs
         </TabsTrigger>
+        <TabsTrigger value="resumo" className="gap-2">
+          <FileDown className="h-4 w-4" />
+          Resumo
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="rodadas">
@@ -123,6 +140,9 @@ function CopaTabs() {
       </TabsContent>
       <TabsContent value="playoffs">
         <AdminCopaPlayoffs />
+      </TabsContent>
+      <TabsContent value="resumo">
+        <AdminResumoCopa />
       </TabsContent>
     </Tabs>
   );
