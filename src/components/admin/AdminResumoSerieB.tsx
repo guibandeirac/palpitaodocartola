@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Document,
   Page,
@@ -9,6 +9,13 @@ import {
 } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FileDown, Loader2, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,20 +27,6 @@ import type { ConfrontoEquipe, ConfrontoIndividual } from "@/hooks/useConfrontos
 import type { ClassificacaoEquipe } from "@/hooks/useClassificacao";
 import type { Artilheiro } from "@/hooks/useArtilheiros";
 import type { PontuacaoEquipe } from "@/hooks/usePontuacaoEquipes";
-
-function useEquipeSerieBIds() {
-  return useQuery({
-    queryKey: ["equipes-serie-b-ids"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("equipes")
-        .select("id")
-        .eq("serie", "B");
-      if (error) throw error;
-      return new Set((data ?? []).map((e) => e.id as string));
-    },
-  });
-}
 
 // ─── colours ────────────────────────────────────────────────────────────────
 const C = {
@@ -57,7 +50,6 @@ const s = StyleSheet.create({
     color: C.text,
     fontSize: 8,
   },
-  // header
   headerBlock: {
     backgroundColor: C.card,
     borderRadius: 6,
@@ -77,7 +69,6 @@ const s = StyleSheet.create({
     fontSize: 9,
     color: C.muted,
   },
-  // section
   section: {
     backgroundColor: C.card,
     borderRadius: 6,
@@ -94,7 +85,6 @@ const s = StyleSheet.create({
     borderBottomStyle: "solid",
     paddingBottom: 4,
   },
-  // table
   tableHeader: {
     flexDirection: "row",
     backgroundColor: C.secondary,
@@ -138,7 +128,6 @@ const s = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 8,
   },
-  // confronto equipe card
   confrontoCard: {
     backgroundColor: C.secondary,
     borderRadius: 5,
@@ -167,7 +156,6 @@ const s = StyleSheet.create({
     color: C.header,
     marginHorizontal: 8,
   },
-  // individual row
   indRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -200,27 +188,6 @@ const s = StyleSheet.create({
     color: C.text,
     textAlign: "right",
   },
-  // próxima rodada
-  proxRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    borderBottomStyle: "solid",
-  },
-  proxTeam: {
-    flex: 1,
-    fontSize: 9,
-    color: C.text,
-    textAlign: "center",
-  },
-  proxVs: {
-    fontSize: 9,
-    color: C.muted,
-    marginHorizontal: 8,
-  },
   smallNote: {
     fontSize: 7,
     color: C.muted,
@@ -245,7 +212,84 @@ function formatDate(): string {
   });
 }
 
-// ─── PDF document data types ─────────────────────────────────────────────────
+// ─── PDF sub-components ───────────────────────────────────────────────────────
+
+// Confronto card com pontuações e vencedor (rodada jogada)
+function ConfrontoCardPDF({ c }: { c: ConfrontoEquipe }) {
+  return (
+    <View style={s.confrontoCard}>
+      <View style={s.confrontoHeader}>
+        <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
+        <Text style={s.confrontoScore}>
+          {c.vitorias_equipe1 ?? 0} × {c.vitorias_equipe2 ?? 0}
+        </Text>
+        <Text style={[s.confrontoEquipeName, { textAlign: "right" }]}>
+          {c.equipe2.nome}
+        </Text>
+      </View>
+      {c.confrontos_individuais.map((ci) => {
+        const p1 = ci.pontuacao_jogador1 ?? 0;
+        const p2 = ci.pontuacao_jogador2 ?? 0;
+        const venc = ci.vencedor;
+        return (
+          <View key={ci.id} style={s.indRow}>
+            <Text
+              style={
+                venc === "jogador1"
+                  ? [s.indName, { color: C.winner, fontFamily: "Helvetica-Bold" }]
+                  : s.indName
+              }
+            >
+              {venc === "jogador1" ? "✓ " : ""}
+              {getPlayerName(ci, "1")}
+            </Text>
+            <Text style={venc === "jogador1" ? s.indPtsWinner : s.indPts}>
+              {formatarPontuacao(p1)}
+            </Text>
+            <Text style={s.tdMuted}>×</Text>
+            <Text style={venc === "jogador2" ? s.indPtsWinner : s.indPts}>
+              {formatarPontuacao(p2)}
+            </Text>
+            <Text
+              style={
+                venc === "jogador2"
+                  ? [s.indNameRight, { color: C.winner, fontFamily: "Helvetica-Bold" }]
+                  : s.indNameRight
+              }
+            >
+              {getPlayerName(ci, "2")}
+              {venc === "jogador2" ? " ✓" : ""}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// Confronto card sem pontuações (próxima rodada — ainda não jogada)
+function ConfrontoCardNextPDF({ c }: { c: ConfrontoEquipe }) {
+  return (
+    <View style={s.confrontoCard}>
+      <View style={s.confrontoHeader}>
+        <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
+        <Text style={[s.confrontoScore, { color: C.muted, fontSize: 9 }]}>vs</Text>
+        <Text style={[s.confrontoEquipeName, { textAlign: "right" }]}>
+          {c.equipe2.nome}
+        </Text>
+      </View>
+      {c.confrontos_individuais.map((ci) => (
+        <View key={ci.id} style={s.indRow}>
+          <Text style={s.indName}>{getPlayerName(ci, "1")}</Text>
+          <Text style={[s.tdMuted, { flex: 0.5, textAlign: "center" }]}>vs</Text>
+          <Text style={s.indNameRight}>{getPlayerName(ci, "2")}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ─── PDF document data type ───────────────────────────────────────────────────
 interface SerieBPdfData {
   rodadaNumero: number;
   confrontos: ConfrontoEquipe[];
@@ -253,7 +297,7 @@ interface SerieBPdfData {
   artilheiros: Artilheiro[];
   pontuacoes: PontuacaoEquipe[];
   proximaRodadaNumero: number | null;
-  proximaConfrontos: Array<{ equipe1Nome: string; equipe2Nome: string }>;
+  proximaConfrontos: ConfrontoEquipe[];
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
@@ -285,55 +329,7 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
         <View style={s.section}>
           <Text style={s.sectionTitle}>Resultado — Rodada {rodadaNumero}</Text>
           {confrontos.map((c) => (
-            <View key={c.id} style={s.confrontoCard}>
-              {/* equipe header */}
-              <View style={s.confrontoHeader}>
-                <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
-                <Text style={s.confrontoScore}>
-                  {c.vitorias_equipe1 ?? 0} × {c.vitorias_equipe2 ?? 0}
-                </Text>
-                <Text style={[s.confrontoEquipeName, { textAlign: "right" }]}>
-                  {c.equipe2.nome}
-                </Text>
-              </View>
-              {/* individual rows */}
-              {c.confrontos_individuais.map((ci) => {
-                const p1 = ci.pontuacao_jogador1 ?? 0;
-                const p2 = ci.pontuacao_jogador2 ?? 0;
-                const venc = ci.vencedor;
-                return (
-                  <View key={ci.id} style={s.indRow}>
-                    <Text
-                      style={
-                        venc === "jogador1"
-                          ? [s.indName, { color: C.winner, fontFamily: "Helvetica-Bold" }]
-                          : s.indName
-                      }
-                    >
-                      {venc === "jogador1" ? "✓ " : ""}
-                      {getPlayerName(ci, "1")}
-                    </Text>
-                    <Text style={venc === "jogador1" ? s.indPtsWinner : s.indPts}>
-                      {formatarPontuacao(p1)}
-                    </Text>
-                    <Text style={s.tdMuted}>×</Text>
-                    <Text style={venc === "jogador2" ? s.indPtsWinner : s.indPts}>
-                      {formatarPontuacao(p2)}
-                    </Text>
-                    <Text
-                      style={
-                        venc === "jogador2"
-                          ? [s.indNameRight, { color: C.winner, fontFamily: "Helvetica-Bold" }]
-                          : s.indNameRight
-                      }
-                    >
-                      {getPlayerName(ci, "2")}
-                      {venc === "jogador2" ? " ✓" : ""}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+            <ConfrontoCardPDF key={c.id} c={c} />
           ))}
           {confrontos.length === 0 && (
             <Text style={s.tdMuted}>Nenhum confronto encontrado.</Text>
@@ -353,8 +349,13 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
             <Text style={[s.th, { width: 36, textAlign: "center" }]}>SALDO</Text>
           </View>
           {classificacao.map((row, idx) => (
-            <View key={row.id} style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}>
-              <Text style={[s.td, { width: 22, color: idx < 2 ? C.winner : C.text }]}>
+            <View
+              key={row.id}
+              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
+            >
+              <Text
+                style={[s.td, { width: 22, color: idx < 2 ? C.winner : C.text }]}
+              >
                 {idx + 1}°
               </Text>
               <Text style={[s.td, { flex: 1 }]}>{row.equipe.nome}</Text>
@@ -380,8 +381,8 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
           )}
         </View>
 
-        {/* ── Artilheiros Top 10 ── */}
-        <View style={s.section}>
+        {/* ── Artilheiros Top 10 — wrap=false mantém a tabela inteira numa só página ── */}
+        <View style={s.section} wrap={false}>
           <Text style={s.sectionTitle}>Artilheiros — Top 10</Text>
           <View style={s.tableHeader}>
             <Text style={[s.th, { width: 20 }]}>#</Text>
@@ -390,7 +391,10 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
             <Text style={[s.th, { width: 28, textAlign: "center" }]}>V</Text>
           </View>
           {top10.map((art, idx) => (
-            <View key={art.jogador_id} style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}>
+            <View
+              key={art.jogador_id}
+              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
+            >
               <Text style={[s.td, { width: 20 }]}>{idx + 1}</Text>
               <Text style={[s.td, { flex: 1 }]}>{art.jogador_nome}</Text>
               <Text style={[s.tdMuted, { flex: 1 }]}>{art.equipe_nome}</Text>
@@ -417,7 +421,10 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
             <Text style={[s.th, { width: 52, textAlign: "center" }]}>ÚLT. RODADA</Text>
           </View>
           {pontuacoes.map((p, idx) => (
-            <View key={p.equipe_id} style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}>
+            <View
+              key={p.equipe_id}
+              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
+            >
               <Text style={[s.td, { flex: 1 }]}>{p.equipe_nome}</Text>
               <Text style={[s.tdGreen, { width: 48, textAlign: "center" }]}>
                 {formatarPontuacao(p.pontuacao_total)}
@@ -435,16 +442,14 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
           )}
         </View>
 
-        {/* ── Próxima Rodada ── */}
+        {/* ── Próxima Rodada com confrontos individuais ── */}
         {proximaRodadaNumero !== null && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Próxima Rodada — {proximaRodadaNumero}</Text>
-            {proximaConfrontos.map((c, idx) => (
-              <View key={idx} style={s.proxRow}>
-                <Text style={s.proxTeam}>{c.equipe1Nome}</Text>
-                <Text style={s.proxVs}>vs</Text>
-                <Text style={s.proxTeam}>{c.equipe2Nome}</Text>
-              </View>
+            <Text style={s.sectionTitle}>
+              Próxima Rodada — {proximaRodadaNumero}
+            </Text>
+            {proximaConfrontos.map((c) => (
+              <ConfrontoCardNextPDF key={c.id} c={c} />
             ))}
             {proximaConfrontos.length === 0 && (
               <Text style={s.tdMuted}>Confrontos ainda não definidos.</Text>
@@ -473,6 +478,20 @@ function useRodadasFull() {
         .order("numero", { ascending: true });
       if (error) throw error;
       return data as RodadaFull[];
+    },
+  });
+}
+
+function useEquipeSerieBIds() {
+  return useQuery({
+    queryKey: ["equipes-serie-b-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("equipes")
+        .select("id")
+        .eq("serie", "B");
+      if (error) throw error;
+      return new Set((data ?? []).map((e) => e.id as string));
     },
   });
 }
@@ -518,34 +537,53 @@ function useConfrontosForRodada(rodadaId: string | null) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function AdminResumoSerieB() {
+  const [selectedRodadaId, setSelectedRodadaId] = useState<string | null>(null);
+
   const { data: rodadas = [], isLoading: loadingRodadas } = useRodadasFull();
   const { data: serieBIds, isLoading: loadingIds } = useEquipeSerieBIds();
   const { data: classificacao = [], isLoading: loadingClass } = useClassificacao("B");
   const { data: artilheiros = [], isLoading: loadingArt } = useArtilheiros("B");
   const { data: pontuacoes = [], isLoading: loadingPonts } = usePontuacaoEquipes("B");
 
-  // Determine current rodada (em_andamento first, else last finalizada)
-  const currentRodada = useMemo(() => {
-    const emAndamento = rodadas.filter((r) => r.status_b === "em_andamento");
-    if (emAndamento.length > 0) return emAndamento[emAndamento.length - 1];
-    const finalizadas = rodadas.filter((r) => r.status_b === "finalizada");
-    if (finalizadas.length > 0) return finalizadas[finalizadas.length - 1];
-    return null;
-  }, [rodadas]);
-
-  // Determine next rodada (first pendente after current)
-  const proximaRodada = useMemo(() => {
-    if (!currentRodada) return null;
-    return rodadas.find((r) => r.numero > currentRodada.numero && r.status_b === "pendente") ?? null;
-  }, [rodadas, currentRodada]);
-
-  const { data: confrontosTodos = [], isLoading: loadingConf } = useConfrontosForRodada(
-    currentRodada?.id ?? null
+  // Rodadas elegíveis para o dropdown (finalizada ou em_andamento), ordem decrescente
+  const selectableRodadas = useMemo(
+    () =>
+      [...rodadas]
+        .filter(
+          (r) => r.status_b === "finalizada" || r.status_b === "em_andamento"
+        )
+        .sort((a, b) => b.numero - a.numero),
+    [rodadas]
   );
+
+  // Auto-seleciona a rodada mais recente quando os dados chegam
+  useEffect(() => {
+    if (selectedRodadaId === null && selectableRodadas.length > 0) {
+      setSelectedRodadaId(selectableRodadas[0].id);
+    }
+  }, [selectableRodadas, selectedRodadaId]);
+
+  const selectedRodada = useMemo(
+    () => rodadas.find((r) => r.id === selectedRodadaId) ?? null,
+    [rodadas, selectedRodadaId]
+  );
+
+  // Próxima rodada: primeiro pendente com número maior que o selecionado
+  const proximaRodada = useMemo(() => {
+    if (!selectedRodada) return null;
+    return (
+      rodadas.find(
+        (r) => r.numero > selectedRodada.numero && r.status_b === "pendente"
+      ) ?? null
+    );
+  }, [rodadas, selectedRodada]);
+
+  const { data: confrontosTodos = [], isLoading: loadingConf } =
+    useConfrontosForRodada(selectedRodada?.id ?? null);
   const { data: proximaConfrontosRaw = [], isLoading: loadingProxConf } =
     useConfrontosForRodada(proximaRodada?.id ?? null);
 
-  // Filter to Serie B only — each rodada contains both Serie A and Serie B confrontos
+  // Filtra apenas equipes da Série B
   const confrontos = useMemo(
     () =>
       serieBIds
@@ -558,15 +596,11 @@ export function AdminResumoSerieB() {
 
   const proximaConfrontos = useMemo(
     () =>
-      (serieBIds
+      serieBIds
         ? proximaConfrontosRaw.filter(
             (c) => serieBIds.has(c.equipe1.id) && serieBIds.has(c.equipe2.id)
           )
-        : []
-      ).map((c) => ({
-        equipe1Nome: c.equipe1.nome,
-        equipe2Nome: c.equipe2.nome,
-      })),
+        : [],
     [proximaConfrontosRaw, serieBIds]
   );
 
@@ -576,13 +610,13 @@ export function AdminResumoSerieB() {
     loadingClass ||
     loadingArt ||
     loadingPonts ||
-    loadingConf ||
-    loadingProxConf;
+    (!!selectedRodada && loadingConf) ||
+    (!!proximaRodada && loadingProxConf);
 
   const pdfData: SerieBPdfData | null = useMemo(() => {
-    if (!currentRodada) return null;
+    if (!selectedRodada) return null;
     return {
-      rodadaNumero: currentRodada.numero,
+      rodadaNumero: selectedRodada.numero,
       confrontos,
       classificacao: classificacao as ClassificacaoEquipe[],
       artilheiros,
@@ -591,7 +625,7 @@ export function AdminResumoSerieB() {
       proximaConfrontos,
     };
   }, [
-    currentRodada,
+    selectedRodada,
     confrontos,
     classificacao,
     artilheiros,
@@ -621,52 +655,82 @@ export function AdminResumoSerieB() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="text-muted-foreground">Carregando dados…</span>
           </div>
-        ) : !pdfData ? (
+        ) : selectableRodadas.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">
             Nenhuma rodada em andamento ou finalizada encontrada para Série B.
           </div>
         ) : (
           <div className="flex flex-col items-start gap-4">
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>
-                <span className="text-foreground font-medium">Rodada atual:</span>{" "}
-                Rodada {pdfData.rodadaNumero}
-              </p>
-              {pdfData.proximaRodadaNumero && (
-                <p>
-                  <span className="text-foreground font-medium">Próxima rodada:</span>{" "}
-                  Rodada {pdfData.proximaRodadaNumero}
-                </p>
-              )}
-              <p>
-                <span className="text-foreground font-medium">Confrontos:</span>{" "}
-                {pdfData.confrontos.length}
-              </p>
-              <p>
-                <span className="text-foreground font-medium">Artilheiros (top 10):</span>{" "}
-                {Math.min(pdfData.artilheiros.length, 10)}
-              </p>
+            {/* Seletor de rodada */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Rodada
+              </label>
+              <Select
+                value={selectedRodadaId ?? ""}
+                onValueChange={setSelectedRodadaId}
+              >
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Selecione a rodada" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectableRodadas.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      Rodada {r.numero}
+                      {r.status_b === "em_andamento" ? " (em andamento)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <PDFDownloadLink
-              document={<SerieBDocument data={pdfData} />}
-              fileName={fileName}
-            >
-              {({ loading: pdfLoading }) => (
-                <Button disabled={pdfLoading} className="gap-2">
-                  {pdfLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando PDF…
-                    </>
-                  ) : (
-                    <>
-                      <FileDown className="h-4 w-4" />
-                      Download PDF — Rodada {pdfData.rodadaNumero}
-                    </>
-                  )}
-                </Button>
-              )}
-            </PDFDownloadLink>
+
+            {/* Info */}
+            {pdfData && (
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>
+                  <span className="text-foreground font-medium">Confrontos:</span>{" "}
+                  {pdfData.confrontos.length}
+                </p>
+                <p>
+                  <span className="text-foreground font-medium">Artilheiros (top 10):</span>{" "}
+                  {Math.min(pdfData.artilheiros.length, 10)}
+                </p>
+                {pdfData.proximaRodadaNumero && (
+                  <p>
+                    <span className="text-foreground font-medium">
+                      Próxima rodada:
+                    </span>{" "}
+                    Rodada {pdfData.proximaRodadaNumero} ·{" "}
+                    {pdfData.proximaConfrontos.length > 0
+                      ? `${pdfData.proximaConfrontos.length} confronto(s)`
+                      : "confrontos ainda não definidos"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {pdfData && (
+              <PDFDownloadLink
+                document={<SerieBDocument data={pdfData} />}
+                fileName={fileName}
+              >
+                {({ loading: pdfLoading }) => (
+                  <Button disabled={pdfLoading} className="gap-2">
+                    {pdfLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Gerando PDF…
+                      </>
+                    ) : (
+                      <>
+                        <FileDown className="h-4 w-4" />
+                        Download PDF — Rodada {pdfData.rodadaNumero}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+            )}
           </div>
         )}
       </CardContent>

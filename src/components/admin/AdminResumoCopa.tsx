@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Document,
   Page,
@@ -9,6 +9,13 @@ import {
 } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FileDown, Loader2, FileText } from "lucide-react";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { useCopaConfrontos } from "@/hooks/useCopaConfrontos";
@@ -210,7 +217,7 @@ interface CopaPdfData {
   classificacao: CopaClassificacaoRow[];
   proximaRodadaNumero: number | null;
   proximaFase: string | null;
-  proximaConfrontos: Array<{ equipe1Nome: string; equipe2Nome: string }>;
+  proximaConfrontos: CopaConfronto[];
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
@@ -331,11 +338,11 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
               Próxima Rodada — {proximaRodadaNumero}
               {proximaFase ? ` (${proximaFase})` : ""}
             </Text>
-            {proximaConfrontos.map((c, idx) => (
-              <View key={idx} style={s.proxRow}>
-                <Text style={s.proxTeam}>{c.equipe1Nome}</Text>
-                <Text style={s.proxVs}>vs</Text>
-                <Text style={s.proxTeam}>{c.equipe2Nome}</Text>
+            {proximaConfrontos.map((c) => (
+              <View key={c.id} style={s.confrontoRow}>
+                <Text style={s.confrontoTeam}>{c.equipe1.nome}</Text>
+                <Text style={[s.confrontoScore, { color: "#a6b1c1" }]}>vs</Text>
+                <Text style={s.confrontoTeamRight}>{c.equipe2.nome}</Text>
               </View>
             ))}
             {proximaConfrontos.length === 0 && (
@@ -350,53 +357,66 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function AdminResumoCopa() {
+  const [selectedRodadaId, setSelectedRodadaId] = useState<string | null>(null);
+
   const { data: rodadas = [], isLoading: loadingRodadas } = useCopaRodadas();
   const { data: classificacao = [], isLoading: loadingClass } = useCopaClassificacao();
 
-  // Current rodada: em_andamento first, else last finalizada
-  const currentRodada: CopaRodada | null = useMemo(() => {
-    const emAndamento = rodadas.filter((r) => r.status === "em_andamento");
-    if (emAndamento.length > 0) return emAndamento[emAndamento.length - 1];
-    const finalizadas = rodadas.filter((r) => r.status === "finalizada");
-    if (finalizadas.length > 0) return finalizadas[finalizadas.length - 1];
-    return null;
-  }, [rodadas]);
+  // Rodadas elegíveis para o dropdown, ordem decrescente
+  const selectableRodadas = useMemo(
+    () =>
+      [...rodadas]
+        .filter((r) => r.status === "finalizada" || r.status === "em_andamento")
+        .sort((a, b) => b.numero - a.numero),
+    [rodadas]
+  );
 
-  // Next rodada: first pendente
+  // Auto-seleciona a rodada mais recente quando os dados chegam
+  useEffect(() => {
+    if (selectedRodadaId === null && selectableRodadas.length > 0) {
+      setSelectedRodadaId(selectableRodadas[0].id);
+    }
+  }, [selectableRodadas, selectedRodadaId]);
+
+  const selectedRodada: CopaRodada | null = useMemo(
+    () => rodadas.find((r) => r.id === selectedRodadaId) ?? null,
+    [rodadas, selectedRodadaId]
+  );
+
+  // Próxima rodada: primeiro pendente com número maior que o selecionado
   const proximaRodada: CopaRodada | null = useMemo(() => {
-    return rodadas.find((r) => r.status === "pendente") ?? null;
-  }, [rodadas]);
+    if (!selectedRodada) return null;
+    return (
+      rodadas.find(
+        (r) => r.numero > selectedRodada.numero && r.status === "pendente"
+      ) ?? null
+    );
+  }, [rodadas, selectedRodada]);
 
   const { data: confrontos = [], isLoading: loadingConf } = useCopaConfrontos(
-    currentRodada?.id ?? null
+    selectedRodada?.id ?? null
   );
-  const { data: proximaConfrontosRaw = [], isLoading: loadingProxConf } =
+  const { data: proximaConfrontos = [], isLoading: loadingProxConf } =
     useCopaConfrontos(proximaRodada?.id ?? null);
 
-  const proximaConfrontos = useMemo(
-    () =>
-      proximaConfrontosRaw.map((c) => ({
-        equipe1Nome: c.equipe1.nome,
-        equipe2Nome: c.equipe2.nome,
-      })),
-    [proximaConfrontosRaw]
-  );
-
   const isLoading =
-    loadingRodadas || loadingClass || loadingConf || loadingProxConf;
+    loadingRodadas ||
+    loadingClass ||
+    (!!selectedRodada && loadingConf) ||
+    (!!proximaRodada && loadingProxConf);
 
   const pdfData: CopaPdfData | null = useMemo(() => {
-    if (!currentRodada) return null;
+    if (!selectedRodada) return null;
     return {
-      rodadaNumero: currentRodada.numero,
-      rodadaFase: faseLabel(currentRodada),
+      rodadaNumero: selectedRodada.numero,
+      rodadaFase: faseLabel(selectedRodada),
       confrontos,
       classificacao: classificacao as CopaClassificacaoRow[],
       proximaRodadaNumero: proximaRodada?.numero ?? null,
       proximaFase: proximaRodada ? faseLabel(proximaRodada) : null,
       proximaConfrontos,
     };
-  }, [currentRodada, confrontos, classificacao, proximaRodada, proximaConfrontos]);
+  }, [selectedRodada, confrontos, classificacao, proximaRodada, proximaConfrontos]);
 
   const fileName = pdfData
     ? `copa-rodada-${pdfData.rodadaNumero}.pdf`
@@ -419,56 +439,87 @@ export function AdminResumoCopa() {
             <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
             <span className="text-muted-foreground">Carregando dados…</span>
           </div>
-        ) : !pdfData ? (
+        ) : selectableRodadas.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">
             Nenhuma rodada em andamento ou finalizada encontrada para a Copa.
           </div>
         ) : (
           <div className="flex flex-col items-start gap-4">
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>
-                <span className="text-foreground font-medium">Rodada atual:</span>{" "}
-                Rodada {pdfData.rodadaNumero} ({pdfData.rodadaFase})
-              </p>
-              {pdfData.proximaRodadaNumero && (
-                <p>
-                  <span className="text-foreground font-medium">Próxima rodada:</span>{" "}
-                  Rodada {pdfData.proximaRodadaNumero}
-                  {pdfData.proximaFase ? ` (${pdfData.proximaFase})` : ""}
-                </p>
-              )}
-              <p>
-                <span className="text-foreground font-medium">Confrontos:</span>{" "}
-                {pdfData.confrontos.length}
-              </p>
-              <p>
-                <span className="text-foreground font-medium">Equipes na classificação:</span>{" "}
-                {pdfData.classificacao.length}
-              </p>
+            {/* Seletor de rodada */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Rodada
+              </label>
+              <Select
+                value={selectedRodadaId ?? ""}
+                onValueChange={setSelectedRodadaId}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Selecione a rodada" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectableRodadas.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      Rodada {r.numero} — {r.fase}
+                      {r.fase_detalhe ? ` (${r.fase_detalhe})` : ""}
+                      {r.status === "em_andamento" ? " · em andamento" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <PDFDownloadLink
-              document={<CopaDocument data={pdfData} />}
-              fileName={fileName}
-            >
-              {({ loading: pdfLoading }) => (
-                <Button
-                  disabled={pdfLoading}
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
-                >
-                  {pdfLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando PDF…
-                    </>
-                  ) : (
-                    <>
-                      <FileDown className="h-4 w-4" />
-                      Download PDF — Rodada {pdfData.rodadaNumero}
-                    </>
-                  )}
-                </Button>
-              )}
-            </PDFDownloadLink>
+
+            {/* Info */}
+            {pdfData && (
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>
+                  <span className="text-foreground font-medium">Fase:</span>{" "}
+                  {pdfData.rodadaFase}
+                </p>
+                <p>
+                  <span className="text-foreground font-medium">Confrontos:</span>{" "}
+                  {pdfData.confrontos.length}
+                </p>
+                {pdfData.proximaRodadaNumero && (
+                  <p>
+                    <span className="text-foreground font-medium">
+                      Próxima rodada:
+                    </span>{" "}
+                    Rodada {pdfData.proximaRodadaNumero}
+                    {pdfData.proximaFase ? ` (${pdfData.proximaFase})` : ""}
+                    {pdfData.proximaConfrontos.length > 0
+                      ? ` · ${pdfData.proximaConfrontos.length} confronto(s)`
+                      : " · confrontos ainda não definidos"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {pdfData && (
+              <PDFDownloadLink
+                document={<CopaDocument data={pdfData} />}
+                fileName={fileName}
+              >
+                {({ loading: pdfLoading }) => (
+                  <Button
+                    disabled={pdfLoading}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {pdfLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Gerando PDF…
+                      </>
+                    ) : (
+                      <>
+                        <FileDown className="h-4 w-4" />
+                        Download PDF — Rodada {pdfData.rodadaNumero}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+            )}
           </div>
         )}
       </CardContent>
