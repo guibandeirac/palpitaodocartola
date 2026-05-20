@@ -215,6 +215,11 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
 
         const vencedor = calcularVencedor(finalP1, finalP2);
 
+        // Persistimos se cada jogador_original escalou — usado pela artilharia
+        // para não contar vitórias do coringa quando o titular sequer escalou.
+        const j1Escalou = j1?.id_cartola != null ? (escalouMap.get(j1.id_cartola) ?? null) : null;
+        const j2Escalou = j2?.id_cartola != null ? (escalouMap.get(j2.id_cartola) ?? null) : null;
+
         // efetivo_id sempre reflete o estado atual: coringa quando substitui,
         // jogador original caso contrário. Isso evita carregar valores antigos
         // de uma execução anterior (ex.: rodar de novo após corrigir a regra
@@ -227,6 +232,8 @@ export function AdminPontuacoes({ serie }: AdminPontuacoesProps) {
             (ci as any)._coringa_efetivo1_id ?? (ci as any).jogador1_original_id ?? null,
           jogador2_efetivo_id:
             (ci as any)._coringa_efetivo2_id ?? (ci as any).jogador2_original_id ?? null,
+          jogador1_original_escalou: j1Escalou,
+          jogador2_original_escalou: j2Escalou,
         };
 
         await supabase

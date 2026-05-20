@@ -146,8 +146,10 @@ export type Database = {
           created_at: string | null
           id: string
           jogador1_efetivo_id: string | null
+          jogador1_original_escalou: boolean | null
           jogador1_original_id: string | null
           jogador2_efetivo_id: string | null
+          jogador2_original_escalou: boolean | null
           jogador2_original_id: string | null
           ordem: number
           pontuacao_jogador1: number | null
@@ -159,8 +161,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           jogador1_efetivo_id?: string | null
+          jogador1_original_escalou?: boolean | null
           jogador1_original_id?: string | null
           jogador2_efetivo_id?: string | null
+          jogador2_original_escalou?: boolean | null
           jogador2_original_id?: string | null
           ordem: number
           pontuacao_jogador1?: number | null
@@ -172,8 +176,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           jogador1_efetivo_id?: string | null
+          jogador1_original_escalou?: boolean | null
           jogador1_original_id?: string | null
           jogador2_efetivo_id?: string | null
+          jogador2_original_escalou?: boolean | null
           jogador2_original_id?: string | null
           ordem?: number
           pontuacao_jogador1?: number | null

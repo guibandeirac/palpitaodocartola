@@ -1,0 +1,398 @@
+﻿[
+    {
+        "ci_id":  "50bd39b9-4cb5-45eb-8330-34e578e8dd9e",
+        "side":  "jogador2",
+        "rodada":  1,
+        "id_cartola":  49167199,
+        "nome":  "Abdallah Junior",
+        "escalou":  true,
+        "reason":  "r1 with atletas=12"
+    },
+    {
+        "ci_id":  "962c09c8-5fa5-4237-9f92-981a46a3d56c",
+        "side":  "jogador2",
+        "rodada":  1,
+        "id_cartola":  29923004,
+        "nome":  "Lucas Sales",
+        "escalou":  false,
+        "reason":  "no atletas in r1"
+    },
+    {
+        "ci_id":  "b7eb57ab-6026-4bb3-864d-a7815732d9e6",
+        "side":  "jogador1",
+        "rodada":  1,
+        "id_cartola":  1172125,
+        "nome":  "Rubem Gonzaga",
+        "escalou":  true,
+        "reason":  "r1 with atletas=12"
+    },
+    {
+        "ci_id":  "16b20c45-f9af-4b2c-bdd2-b8f486a089dc",
+        "side":  "jogador1",
+        "rodada":  2,
+        "id_cartola":  13951152,
+        "nome":  "Guilherme Santana",
+        "escalou":  true,
+        "reason":  "team differs from r1"
+    },
+    {
+        "ci_id":  "e3ef6f5d-7388-4aa8-8c0f-79e54bbea7c4",
+        "side":  "jogador2",
+        "rodada":  2,
+        "id_cartola":  18433190,
+        "nome":  "Henrique Bispo",
+        "escalou":  true,
+        "reason":  "team differs from r1"
+    },
+    {
+        "ci_id":  "e500e831-c3ec-48fe-bdce-7ce826472fe4",
+        "side":  "jogador1",
+        "rodada":  2,
+        "id_cartola":  20610991,
+        "nome":  "Lucas Ballan",
+        "escalou":  true,
+        "reason":  "team differs from r1"
+    },
+    {
+        "ci_id":  "4c5bd1ed-6073-48aa-90d9-df47d9c42733",
+        "side":  "jogador1",
+        "rodada":  3,
+        "id_cartola":  51002752,
+        "nome":  "Nattan Solived",
+        "escalou":  true,
+        "reason":  "team differs from r2"
+    },
+    {
+        "ci_id":  "65865f54-49ce-4fd7-9169-c054593193ff",
+        "side":  "jogador2",
+        "rodada":  3,
+        "id_cartola":  822810,
+        "nome":  "Gustavo Duarte",
+        "escalou":  true,
+        "reason":  "team differs from r2"
+    },
+    {
+        "ci_id":  "9a4f38ba-4b4f-4d1d-b681-82a408d9cfbe",
+        "side":  "jogador1",
+        "rodada":  3,
+        "id_cartola":  3366012,
+        "nome":  "Rodrigo Ertal",
+        "escalou":  true,
+        "reason":  "team differs from r2"
+    },
+    {
+        "ci_id":  "18af0fbc-80ba-4ee1-99e6-588cda24b51b",
+        "side":  "jogador2",
+        "rodada":  4,
+        "id_cartola":  10820940,
+        "nome":  "Felipe Bastos",
+        "escalou":  false,
+        "reason":  "same team as r3"
+    },
+    {
+        "ci_id":  "1c5c7df0-efb5-446b-bf90-67f5ef79033e",
+        "side":  "jogador1",
+        "rodada":  4,
+        "id_cartola":  4610109,
+        "nome":  "JosuÃ©",
+        "escalou":  true,
+        "reason":  "team differs from r3"
+    },
+    {
+        "ci_id":  "89daf6fa-a6ea-4c78-9202-b0bb3fde2e11",
+        "side":  "jogador1",
+        "rodada":  4,
+        "id_cartola":  4980868,
+        "nome":  "Gian Carlos",
+        "escalou":  true,
+        "reason":  "team differs from r3"
+    },
+    {
+        "ci_id":  "2a61f905-8e32-4fc3-928a-941a34b3194d",
+        "side":  "jogador2",
+        "rodada":  5,
+        "id_cartola":  822810,
+        "nome":  "Gustavo Duarte",
+        "escalou":  true,
+        "reason":  "team differs from r4"
+    },
+    {
+        "ci_id":  "424ee0f0-2efe-4a56-b98d-e79870dfcfc4",
+        "side":  "jogador1",
+        "rodada":  5,
+        "id_cartola":  47889235,
+        "nome":  "Varela",
+        "escalou":  true,
+        "reason":  "team differs from r4"
+    },
+    {
+        "ci_id":  "0b8192e8-e262-4705-9ce4-ff04b96cd095",
+        "side":  "jogador1",
+        "rodada":  6,
+        "id_cartola":  3965687,
+        "nome":  "SÃ³stenes",
+        "escalou":  true,
+        "reason":  "team differs from r5"
+    },
+    {
+        "ci_id":  "5eab58b9-2604-4148-8562-3d253cf484c2",
+        "side":  "jogador1",
+        "rodada":  6,
+        "id_cartola":  51002752,
+        "nome":  "Nattan Solived",
+        "escalou":  true,
+        "reason":  "team differs from r5"
+    },
+    {
+        "ci_id":  "63dad77d-a76e-4a34-aa35-8a2e648f0d51",
+        "side":  "jogador2",
+        "rodada":  6,
+        "id_cartola":  13951152,
+        "nome":  "Guilherme Santana",
+        "escalou":  true,
+        "reason":  "team differs from r5"
+    },
+    {
+        "ci_id":  "09d93f8f-2e68-45f7-b0f7-5c6a6774ca58",
+        "side":  "jogador2",
+        "rodada":  7,
+        "id_cartola":  29923004,
+        "nome":  "Lucas Sales",
+        "escalou":  true,
+        "reason":  "team differs from r6"
+    },
+    {
+        "ci_id":  "0eb75f02-a30f-48ab-b64a-7b918dd284ea",
+        "side":  "jogador2",
+        "rodada":  7,
+        "id_cartola":  3366012,
+        "nome":  "Rodrigo Ertal",
+        "escalou":  true,
+        "reason":  "team differs from r6"
+    },
+    {
+        "ci_id":  "3df1ed06-6383-4fdb-8c25-142c89d45f73",
+        "side":  "jogador1",
+        "rodada":  7,
+        "id_cartola":  18433190,
+        "nome":  "Henrique Bispo",
+        "escalou":  true,
+        "reason":  "team differs from r6"
+    },
+    {
+        "ci_id":  "96678848-7e57-4acd-897d-5afbec94aed7",
+        "side":  "jogador1",
+        "rodada":  7,
+        "id_cartola":  13951152,
+        "nome":  "Guilherme Santana",
+        "escalou":  true,
+        "reason":  "team differs from r6"
+    },
+    {
+        "ci_id":  "1a17d757-653f-4c10-8f84-d61935375df9",
+        "side":  "jogador1",
+        "rodada":  8,
+        "id_cartola":  29923004,
+        "nome":  "Lucas Sales",
+        "escalou":  true,
+        "reason":  "team differs from r7"
+    },
+    {
+        "ci_id":  "59001b71-aa59-48c6-8697-8c2680a50951",
+        "side":  "jogador2",
+        "rodada":  8,
+        "id_cartola":  4223633,
+        "nome":  "Gustavo B.",
+        "escalou":  true,
+        "reason":  "team differs from r7"
+    },
+    {
+        "ci_id":  "b337204d-46f9-4d98-8a96-6330b08d1b0b",
+        "side":  "jogador1",
+        "rodada":  8,
+        "id_cartola":  4980868,
+        "nome":  "Gian Carlos",
+        "escalou":  true,
+        "reason":  "team differs from r7"
+    },
+    {
+        "ci_id":  "633922ad-cfa9-4629-af42-df56c1126a51",
+        "side":  "jogador2",
+        "rodada":  9,
+        "id_cartola":  25518070,
+        "nome":  "Matheus Rocha",
+        "escalou":  true,
+        "reason":  "team differs from r8"
+    },
+    {
+        "ci_id":  "736f5025-a1c1-4d12-9a2f-2736cadd5d02",
+        "side":  "jogador1",
+        "rodada":  9,
+        "id_cartola":  18919707,
+        "nome":  "Edeson Jr.",
+        "escalou":  true,
+        "reason":  "team differs from r8"
+    },
+    {
+        "ci_id":  "b90ed3ca-afaa-4fb7-863e-a33cd471779c",
+        "side":  "jogador1",
+        "rodada":  9,
+        "id_cartola":  4223633,
+        "nome":  "Gustavo B.",
+        "escalou":  true,
+        "reason":  "team differs from r8"
+    },
+    {
+        "ci_id":  "651340ae-a6b5-482e-908e-f74bed7b165e",
+        "side":  "jogador2",
+        "rodada":  10,
+        "id_cartola":  25493002,
+        "nome":  "VinÃ­cius CauÃ£",
+        "escalou":  true,
+        "reason":  "team differs from r9"
+    },
+    {
+        "ci_id":  "7fd8606a-5902-4095-9192-712f25adf06a",
+        "side":  "jogador1",
+        "rodada":  10,
+        "id_cartola":  50292975,
+        "nome":  "Henrique Barros",
+        "escalou":  true,
+        "reason":  "team differs from r9"
+    },
+    {
+        "ci_id":  "57b9420b-0765-45b6-b42b-db67ae041736",
+        "side":  "jogador2",
+        "rodada":  11,
+        "id_cartola":  9864123,
+        "nome":  "MoisÃ©s",
+        "escalou":  true,
+        "reason":  "team differs from r10"
+    },
+    {
+        "ci_id":  "6ea2fcc9-cfc4-479a-80fd-97344fa0528e",
+        "side":  "jogador1",
+        "rodada":  11,
+        "id_cartola":  16494835,
+        "nome":  "Ricardo Paccanaro",
+        "escalou":  true,
+        "reason":  "team differs from r10"
+    },
+    {
+        "ci_id":  "fb89a752-a91d-4a8e-aae4-a3dcfcf75bbe",
+        "side":  "jogador2",
+        "rodada":  11,
+        "id_cartola":  44509920,
+        "nome":  "Rafael Matos",
+        "escalou":  true,
+        "reason":  "team differs from r10"
+    },
+    {
+        "ci_id":  "473fd794-b7ca-4102-8201-80f4e3603559",
+        "side":  "jogador2",
+        "rodada":  12,
+        "id_cartola":  49167199,
+        "nome":  "Abdallah Junior",
+        "escalou":  true,
+        "reason":  "team differs from r11"
+    },
+    {
+        "ci_id":  "b2c564d4-7ed0-41db-b0da-f56ac9169a88",
+        "side":  "jogador2",
+        "rodada":  13,
+        "id_cartola":  4980868,
+        "nome":  "Gian Carlos",
+        "escalou":  true,
+        "reason":  "team differs from r12"
+    },
+    {
+        "ci_id":  "d27ba29f-ef1e-4283-a2d1-558e6329ea19",
+        "side":  "jogador1",
+        "rodada":  13,
+        "id_cartola":  1754178,
+        "nome":  "Willian",
+        "escalou":  true,
+        "reason":  "team differs from r12"
+    },
+    {
+        "ci_id":  "2c2bb5fc-3ab6-48d9-9cf8-f43ea6227d28",
+        "side":  "jogador2",
+        "rodada":  14,
+        "id_cartola":  44794091,
+        "nome":  "Magno Benjamim",
+        "escalou":  true,
+        "reason":  "team differs from r13"
+    },
+    {
+        "ci_id":  "3ed36093-288a-4b76-a03b-468aefddf288",
+        "side":  "jogador1",
+        "rodada":  14,
+        "id_cartola":  4610109,
+        "nome":  "JosuÃ©",
+        "escalou":  true,
+        "reason":  "team differs from r13"
+    },
+    {
+        "ci_id":  "4f1c1e82-2457-4a7e-b645-1948fc43490b",
+        "side":  "jogador2",
+        "rodada":  14,
+        "id_cartola":  51002752,
+        "nome":  "Nattan Solived",
+        "escalou":  false,
+        "reason":  "same team as r13"
+    },
+    {
+        "ci_id":  "53df6e8a-6945-4c8d-826e-5c2bcb80984a",
+        "side":  "jogador1",
+        "rodada":  14,
+        "id_cartola":  16494835,
+        "nome":  "Ricardo Paccanaro",
+        "escalou":  true,
+        "reason":  "team differs from r13"
+    },
+    {
+        "ci_id":  "686c2e98-2486-430b-9532-beee6a6d1a5e",
+        "side":  "jogador1",
+        "rodada":  15,
+        "id_cartola":  10051539,
+        "nome":  "Netinho",
+        "escalou":  true,
+        "reason":  "team differs from r14"
+    },
+    {
+        "ci_id":  "9ee0df16-b8b5-4314-a2da-6e57e56cb6ce",
+        "side":  "jogador1",
+        "rodada":  15,
+        "id_cartola":  47889235,
+        "nome":  "Varela",
+        "escalou":  true,
+        "reason":  "team differs from r14"
+    },
+    {
+        "ci_id":  "d328bbcf-f5a5-49f9-b5b8-6c20c69ca3c1",
+        "side":  "jogador2",
+        "rodada":  15,
+        "id_cartola":  4610109,
+        "nome":  "JosuÃ©",
+        "escalou":  true,
+        "reason":  "team differs from r14"
+    },
+    {
+        "ci_id":  "62f19f69-d49f-4973-89b6-8a6ccda2628f",
+        "side":  "jogador2",
+        "rodada":  16,
+        "id_cartola":  89922,
+        "nome":  "Carlos",
+        "escalou":  true,
+        "reason":  "team differs from r15"
+    },
+    {
+        "ci_id":  "7963d09c-ba13-40e4-8f61-8d8bd89ef79b",
+        "side":  "jogador1",
+        "rodada":  16,
+        "id_cartola":  18433190,
+        "nome":  "Henrique Bispo",
+        "escalou":  true,
+        "reason":  "team differs from r15"
+    }
+]
