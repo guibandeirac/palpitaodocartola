@@ -351,10 +351,12 @@ const s = StyleSheet.create({
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function getPlayerName(ci: ConfrontoIndividual, side: "1" | "2"): string {
-  if (side === "1") {
-    return ci.jogador1_efetivo?.nome ?? ci.jogador1_original?.nome ?? "—";
+  const efetivo = side === "1" ? ci.jogador1_efetivo : ci.jogador2_efetivo;
+  const original = side === "1" ? ci.jogador1_original : ci.jogador2_original;
+  if (efetivo?.eh_coringa) {
+    return `🃏 ${original?.nome ?? "—"}`;
   }
-  return ci.jogador2_efetivo?.nome ?? ci.jogador2_original?.nome ?? "—";
+  return efetivo?.nome ?? original?.nome ?? "—";
 }
 
 function formatDate(): string {
