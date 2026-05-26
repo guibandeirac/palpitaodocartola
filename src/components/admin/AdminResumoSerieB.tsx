@@ -354,7 +354,7 @@ function getPlayerName(ci: ConfrontoIndividual, side: "1" | "2"): string {
   const efetivo = side === "1" ? ci.jogador1_efetivo : ci.jogador2_efetivo;
   const original = side === "1" ? ci.jogador1_original : ci.jogador2_original;
   if (efetivo?.eh_coringa) {
-    return `🃏 ${original?.nome ?? "—"}`;
+    return `(C) ${original?.nome ?? "—"}`;
   }
   return efetivo?.nome ?? original?.nome ?? "—";
 }
