@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import {
   Document,
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   PDFDownloadLink,
 } from "@react-pdf/renderer";
@@ -30,169 +31,321 @@ import type { PontuacaoEquipe } from "@/hooks/usePontuacaoEquipes";
 
 // ─── colours ────────────────────────────────────────────────────────────────
 const C = {
-  bg: "#0a0e27",
-  card: "#131f3f",
-  header: "#36c46e",
-  text: "#f7fbff",
-  muted: "#a6b1c1",
-  border: "#243352",
-  secondary: "#1e2d4a",
-  winner: "#36c46e",
+  bg: "#0d1117",
+  card: "#161b22",
+  header: "#3fb950",
+  text: "#e6edf3",
+  muted: "#8b949e",
+  border: "#30363d",
+  secondary: "#21262d",
+  winner: "#3fb950",
+  gold: "#f0b429",
+  silver: "#8b949e",
+  bronze: "#c9742e",
+  dimBg: "#1c2128",
 };
+
+const APP_LOGO =
+  typeof window !== "undefined"
+    ? window.location.origin + "/icon.png"
+    : "/icon.png";
 
 // ─── PDF styles ──────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   page: {
     backgroundColor: C.bg,
-    paddingVertical: 28,
+    paddingTop: 28,
+    paddingBottom: 44,
     paddingHorizontal: 28,
     fontFamily: "Helvetica",
     color: C.text,
-    fontSize: 8,
+    fontSize: 10,
   },
+  // ── header ──
   headerBlock: {
     backgroundColor: C.card,
-    borderRadius: 6,
+    borderRadius: 8,
+    marginBottom: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: "solid",
+  },
+  headerAccent: {
+    backgroundColor: C.header,
+    height: 4,
+  },
+  headerInner: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 14,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: C.header,
-    borderLeftStyle: "solid",
+    gap: 14,
+  },
+  headerLogoWrap: {
+    backgroundColor: C.bg,
+    borderRadius: 8,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: "solid",
+  },
+  headerLogo: {
+    width: 44,
+    height: 44,
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
-    color: C.header,
-    marginBottom: 2,
+    color: C.text,
+    marginBottom: 3,
   },
   headerSub: {
-    fontSize: 9,
+    fontSize: 11,
     color: C.muted,
   },
-  section: {
-    backgroundColor: C.card,
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 10,
+  headerBadge: {
+    backgroundColor: "#1a3025",
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "#2ea043",
+    borderStyle: "solid",
   },
-  sectionTitle: {
+  headerBadgeText: {
+    color: C.header,
     fontSize: 10,
     fontFamily: "Helvetica-Bold",
-    color: C.header,
-    marginBottom: 8,
+  },
+  // ── sections ──
+  section: {
+    backgroundColor: C.card,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: "solid",
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     borderBottomStyle: "solid",
-    paddingBottom: 4,
+    gap: 8,
   },
+  sectionAccentBar: {
+    width: 3,
+    height: 14,
+    backgroundColor: C.header,
+    borderRadius: 2,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    color: C.text,
+  },
+  // ── tables ──
   tableHeader: {
     flexDirection: "row",
     backgroundColor: C.secondary,
-    borderRadius: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     marginBottom: 2,
   },
   tableRow: {
     flexDirection: "row",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     borderBottomStyle: "solid",
+    alignItems: "center",
   },
-  tableRowHighlight: {
+  tableRowAlt: {
     flexDirection: "row",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     borderBottomStyle: "solid",
-    backgroundColor: "#1a2840",
+    backgroundColor: C.dimBg,
+    alignItems: "center",
   },
   th: {
     color: C.muted,
     fontFamily: "Helvetica-Bold",
-    fontSize: 7,
+    fontSize: 8,
   },
   td: {
     color: C.text,
-    fontSize: 8,
+    fontSize: 10,
   },
   tdMuted: {
     color: C.muted,
-    fontSize: 8,
+    fontSize: 10,
   },
   tdGreen: {
     color: C.winner,
     fontFamily: "Helvetica-Bold",
-    fontSize: 8,
+    fontSize: 10,
   },
+  // ── confronto cards ──
   confrontoCard: {
     backgroundColor: C.secondary,
-    borderRadius: 5,
-    padding: 8,
+    borderRadius: 6,
     marginBottom: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: "solid",
   },
   confrontoHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
-    paddingBottom: 5,
+    padding: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     borderBottomStyle: "solid",
   },
+  confrontoBody: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  confrontoTeamBlock: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  confrontoTeamBlockRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 7,
+  },
   confrontoEquipeName: {
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: C.text,
     flex: 1,
   },
-  confrontoScore: {
+  confrontoEquipeNameRight: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
-    color: C.header,
+    color: C.text,
+    flex: 1,
+    textAlign: "right",
+  },
+  confrontoScoreBlock: {
+    backgroundColor: C.bg,
+    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     marginHorizontal: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: "solid",
+  },
+  confrontoScore: {
+    fontSize: 15,
+    fontFamily: "Helvetica-Bold",
+    color: C.header,
   },
   indRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderBottomWidth: 1,
-    borderBottomColor: "#1a2840",
+    borderBottomColor: C.border,
     borderBottomStyle: "solid",
   },
   indName: {
     flex: 3,
-    fontSize: 7,
+    fontSize: 9,
     color: C.text,
   },
   indPts: {
     flex: 1.5,
-    fontSize: 7,
+    fontSize: 9,
     color: C.muted,
     textAlign: "center",
   },
   indPtsWinner: {
     flex: 1.5,
-    fontSize: 7,
+    fontSize: 9,
     color: C.winner,
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
   },
   indNameRight: {
     flex: 3,
-    fontSize: 7,
+    fontSize: 9,
     color: C.text,
     textAlign: "right",
   },
-  smallNote: {
-    fontSize: 7,
+  // ── position badge ──
+  posBadge: {
+    height: 18,
+    borderRadius: 3,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 2,
+    paddingHorizontal: 4,
+  },
+  posBadgeText: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#0a0e27",
+  },
+  posText: {
+    fontSize: 10,
     color: C.muted,
-    marginTop: 6,
+  },
+  smallNote: {
+    fontSize: 8,
+    color: C.muted,
+    marginTop: 8,
     textAlign: "center",
+  },
+  classTeamRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  // ── footer ──
+  footer: {
+    position: "absolute",
+    bottom: 14,
+    left: 28,
+    right: 28,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    borderTopStyle: "solid",
+    paddingTop: 6,
+  },
+  footerText: {
+    fontSize: 8,
+    color: C.muted,
+  },
+  footerPage: {
+    fontSize: 8,
+    color: C.muted,
   },
 });
 
@@ -212,84 +365,148 @@ function formatDate(): string {
   });
 }
 
+function posColor(idx: number): string {
+  if (idx === 0) return C.gold;
+  if (idx === 1) return C.silver;
+  if (idx === 2) return C.bronze;
+  return "";
+}
+
 // ─── PDF sub-components ───────────────────────────────────────────────────────
 
-// Confronto card com pontuações e vencedor (rodada jogada)
+function TeamLogo({ url, name, size = 28 }: { url: string | null; name: string; size?: number }) {
+  if (url) {
+    return (
+      <Image
+        src={url}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    );
+  }
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: C.secondary,
+        borderRadius: size / 2,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: C.border,
+        borderStyle: "solid",
+      }}
+    >
+      <Text style={{ fontSize: size * 0.36, color: C.muted, fontFamily: "Helvetica-Bold" }}>
+        {name.slice(0, 2).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <View style={s.sectionTitleRow}>
+      <View style={s.sectionAccentBar} />
+      <Text style={s.sectionTitle}>{children}</Text>
+    </View>
+  );
+}
+
 function ConfrontoCardPDF({ c }: { c: ConfrontoEquipe }) {
   return (
     <View style={s.confrontoCard} wrap={false}>
       <View style={s.confrontoHeader}>
-        <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
-        <Text style={s.confrontoScore}>
-          {c.vitorias_equipe1 ?? 0} × {c.vitorias_equipe2 ?? 0}
-        </Text>
-        <Text style={[s.confrontoEquipeName, { textAlign: "right" }]}>
-          {c.equipe2.nome}
-        </Text>
+        <View style={s.confrontoTeamBlock}>
+          <TeamLogo url={c.equipe1.logo_url} name={c.equipe1.nome} size={30} />
+          <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
+        </View>
+        <View style={s.confrontoScoreBlock}>
+          <Text style={s.confrontoScore}>
+            {c.vitorias_equipe1 ?? 0} × {c.vitorias_equipe2 ?? 0}
+          </Text>
+        </View>
+        <View style={s.confrontoTeamBlockRight}>
+          <Text style={s.confrontoEquipeNameRight}>{c.equipe2.nome}</Text>
+          <TeamLogo url={c.equipe2.logo_url} name={c.equipe2.nome} size={30} />
+        </View>
       </View>
-      {c.confrontos_individuais.map((ci) => {
-        const p1 = ci.pontuacao_jogador1 ?? 0;
-        const p2 = ci.pontuacao_jogador2 ?? 0;
-        const venc = ci.vencedor;
-        return (
-          <View key={ci.id} style={s.indRow}>
-            <Text
-              style={
-                venc === "jogador1"
-                  ? [s.indName, { color: C.winner, fontFamily: "Helvetica-Bold" }]
-                  : s.indName
-              }
-            >
-              {venc === "jogador1" ? "✓ " : ""}
-              {getPlayerName(ci, "1")}
-            </Text>
-            <Text style={venc === "jogador1" ? s.indPtsWinner : s.indPts}>
-              {formatarPontuacao(p1)}
-            </Text>
-            <Text style={s.tdMuted}>×</Text>
-            <Text style={venc === "jogador2" ? s.indPtsWinner : s.indPts}>
-              {formatarPontuacao(p2)}
-            </Text>
-            <Text
-              style={
-                venc === "jogador2"
-                  ? [s.indNameRight, { color: C.winner, fontFamily: "Helvetica-Bold" }]
-                  : s.indNameRight
-              }
-            >
-              {getPlayerName(ci, "2")}
-              {venc === "jogador2" ? " ✓" : ""}
-            </Text>
-          </View>
-        );
-      })}
+      <View style={s.confrontoBody}>
+        {c.confrontos_individuais.map((ci) => {
+          const p1 = ci.pontuacao_jogador1 ?? 0;
+          const p2 = ci.pontuacao_jogador2 ?? 0;
+          const venc = ci.vencedor;
+          return (
+            <View key={ci.id} style={s.indRow}>
+              <Text
+                style={
+                  venc === "jogador1"
+                    ? [s.indName, { color: C.winner, fontFamily: "Helvetica-Bold" }]
+                    : s.indName
+                }
+              >
+                {venc === "jogador1" ? "✓ " : ""}
+                {getPlayerName(ci, "1")}
+              </Text>
+              <Text style={venc === "jogador1" ? s.indPtsWinner : s.indPts}>
+                {formatarPontuacao(p1)}
+              </Text>
+              <Text style={s.tdMuted}>×</Text>
+              <Text style={venc === "jogador2" ? s.indPtsWinner : s.indPts}>
+                {formatarPontuacao(p2)}
+              </Text>
+              <Text
+                style={
+                  venc === "jogador2"
+                    ? [s.indNameRight, { color: C.winner, fontFamily: "Helvetica-Bold" }]
+                    : s.indNameRight
+                }
+              >
+                {getPlayerName(ci, "2")}
+                {venc === "jogador2" ? " ✓" : ""}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
-// Confronto card sem pontuações (próxima rodada — ainda não jogada)
 function ConfrontoCardNextPDF({ c }: { c: ConfrontoEquipe }) {
   return (
     <View style={s.confrontoCard} wrap={false}>
       <View style={s.confrontoHeader}>
-        <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
-        <Text style={[s.confrontoScore, { color: C.muted, fontSize: 9 }]}>vs</Text>
-        <Text style={[s.confrontoEquipeName, { textAlign: "right" }]}>
-          {c.equipe2.nome}
-        </Text>
-      </View>
-      {c.confrontos_individuais.map((ci) => (
-        <View key={ci.id} style={s.indRow}>
-          <Text style={s.indName}>{getPlayerName(ci, "1")}</Text>
-          <Text style={[s.tdMuted, { flex: 0.5, textAlign: "center" }]}>vs</Text>
-          <Text style={s.indNameRight}>{getPlayerName(ci, "2")}</Text>
+        <View style={s.confrontoTeamBlock}>
+          <TeamLogo url={c.equipe1.logo_url} name={c.equipe1.nome} size={30} />
+          <Text style={s.confrontoEquipeName}>{c.equipe1.nome}</Text>
         </View>
-      ))}
+        <View style={s.confrontoScoreBlock}>
+          <Text style={[s.confrontoScore, { color: C.muted, fontSize: 11 }]}>
+            vs
+          </Text>
+        </View>
+        <View style={s.confrontoTeamBlockRight}>
+          <Text style={s.confrontoEquipeNameRight}>{c.equipe2.nome}</Text>
+          <TeamLogo url={c.equipe2.logo_url} name={c.equipe2.nome} size={30} />
+        </View>
+      </View>
+      <View style={s.confrontoBody}>
+        {c.confrontos_individuais.map((ci) => (
+          <View key={ci.id} style={s.indRow}>
+            <Text style={s.indName}>{getPlayerName(ci, "1")}</Text>
+            <Text style={[s.tdMuted, { flex: 0.5, textAlign: "center" }]}>
+              vs
+            </Text>
+            <Text style={s.indNameRight}>{getPlayerName(ci, "2")}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
-// ─── PDF document data type ───────────────────────────────────────────────────
+// ─── PDF Document ─────────────────────────────────────────────────────────────
 interface SerieBPdfData {
   rodadaNumero: number;
   confrontos: ConfrontoEquipe[];
@@ -298,9 +515,9 @@ interface SerieBPdfData {
   pontuacoes: PontuacaoEquipe[];
   proximaRodadaNumero: number | null;
   proximaConfrontos: ConfrontoEquipe[];
+  logoMap: Record<string, string | null>;
 }
 
-// ─── PDF Document ─────────────────────────────────────────────────────────────
 function SerieBDocument({ data }: { data: SerieBPdfData }) {
   const {
     rodadaNumero,
@@ -310,6 +527,7 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
     pontuacoes,
     proximaRodadaNumero,
     proximaConfrontos,
+    logoMap,
   } = data;
 
   const top10 = artilheiros.slice(0, 10);
@@ -319,15 +537,26 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
       <Page size="A4" style={s.page}>
         {/* ── Header ── */}
         <View style={s.headerBlock}>
-          <Text style={s.headerTitle}>
-            Palpitão do Cartola FC · Série B · Rodada {rodadaNumero}
-          </Text>
-          <Text style={s.headerSub}>{formatDate()}</Text>
+          <View style={s.headerAccent} />
+          <View style={s.headerInner}>
+            <View style={s.headerLogoWrap}>
+              <Image src={APP_LOGO} style={s.headerLogo} />
+            </View>
+            <View style={s.headerTextBlock}>
+              <Text style={s.headerTitle}>Palpitão do Cartola FC</Text>
+              <Text style={s.headerSub}>
+                Resumo · Rodada {rodadaNumero} · {formatDate()}
+              </Text>
+            </View>
+            <View style={s.headerBadge}>
+              <Text style={s.headerBadgeText}>SÉRIE B</Text>
+            </View>
+          </View>
         </View>
 
         {/* ── Resultado da Rodada ── */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Resultado — Rodada {rodadaNumero}</Text>
+          <SectionTitle>Resultado — Rodada {rodadaNumero}</SectionTitle>
           {confrontos.map((c) => (
             <ConfrontoCardPDF key={c.id} c={c} />
           ))}
@@ -337,72 +566,99 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
         </View>
 
         {/* ── Classificação ── */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Classificação</Text>
-          <View style={s.tableHeader}>
-            <Text style={[s.th, { width: 22 }]}>POS</Text>
-            <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
-            <Text style={[s.th, { width: 28, textAlign: "center" }]}>PTS</Text>
-            <Text style={[s.th, { width: 22, textAlign: "center" }]}>V</Text>
-            <Text style={[s.th, { width: 22, textAlign: "center" }]}>E</Text>
-            <Text style={[s.th, { width: 22, textAlign: "center" }]}>D</Text>
-            <Text style={[s.th, { width: 36, textAlign: "center" }]}>SALDO</Text>
-          </View>
-          {classificacao.map((row, idx) => (
-            <View
-              key={row.id}
-              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
-            >
-              <Text
-                style={[s.td, { width: 22, color: idx < 2 ? C.winner : C.text }]}
-              >
-                {idx + 1}°
-              </Text>
-              <Text style={[s.td, { flex: 1 }]}>{row.equipe.nome}</Text>
-              <Text style={[s.tdGreen, { width: 28, textAlign: "center" }]}>
-                {row.pontos ?? 0}
-              </Text>
-              <Text style={[s.td, { width: 22, textAlign: "center" }]}>
-                {row.vitorias ?? 0}
-              </Text>
-              <Text style={[s.td, { width: 22, textAlign: "center" }]}>
-                {row.empates ?? 0}
-              </Text>
-              <Text style={[s.td, { width: 22, textAlign: "center" }]}>
-                {row.derrotas ?? 0}
-              </Text>
-              <Text style={[s.td, { width: 36, textAlign: "center" }]}>
-                {row.saldo_confrontos ?? 0}
-              </Text>
+        <View style={s.section} break={true}>
+          <View wrap={false}>
+            <SectionTitle>Classificação</SectionTitle>
+            <View style={s.tableHeader}>
+              <Text style={[s.th, { width: 30 }]}>POS</Text>
+              <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
+              <Text style={[s.th, { width: 32, textAlign: "center" }]}>PTS</Text>
+              <Text style={[s.th, { width: 26, textAlign: "center" }]}>V</Text>
+              <Text style={[s.th, { width: 26, textAlign: "center" }]}>E</Text>
+              <Text style={[s.th, { width: 26, textAlign: "center" }]}>D</Text>
+              <Text style={[s.th, { width: 40, textAlign: "center" }]}>SALDO</Text>
             </View>
-          ))}
+          </View>
+          {classificacao.map((row, idx) => {
+            const color = posColor(idx);
+            return (
+              <View
+                key={row.id}
+                style={idx % 2 === 0 ? s.tableRow : s.tableRowAlt}
+                wrap={false}
+              >
+                {color ? (
+                  <View style={[s.posBadge, { backgroundColor: color, width: 30 }]}>
+                    <Text style={s.posBadgeText}>{idx + 1}°</Text>
+                  </View>
+                ) : (
+                  <Text style={[s.posText, { width: 30 }]}>{idx + 1}°</Text>
+                )}
+                <View style={s.classTeamRow}>
+                  <TeamLogo
+                    url={row.equipe.logo_url ?? null}
+                    name={row.equipe.nome}
+                    size={18}
+                  />
+                  <Text style={[s.td, { flex: 1 }]}>{row.equipe.nome}</Text>
+                </View>
+                <Text style={[s.tdGreen, { width: 32, textAlign: "center" }]}>
+                  {row.pontos ?? 0}
+                </Text>
+                <Text style={[s.td, { width: 26, textAlign: "center" }]}>
+                  {row.vitorias ?? 0}
+                </Text>
+                <Text style={[s.td, { width: 26, textAlign: "center" }]}>
+                  {row.empates ?? 0}
+                </Text>
+                <Text style={[s.td, { width: 26, textAlign: "center" }]}>
+                  {row.derrotas ?? 0}
+                </Text>
+                <Text style={[s.td, { width: 40, textAlign: "center" }]}>
+                  {row.saldo_confrontos ?? 0}
+                </Text>
+              </View>
+            );
+          })}
           {classificacao.length === 0 && (
             <Text style={s.tdMuted}>Nenhum dado de classificação.</Text>
           )}
         </View>
 
-        {/* ── Artilheiros Top 10 — wrap=false mantém a tabela inteira numa só página ── */}
-        <View style={s.section} wrap={false}>
-          <Text style={s.sectionTitle}>Artilheiros — Top 10</Text>
-          <View style={s.tableHeader}>
-            <Text style={[s.th, { width: 20 }]}>#</Text>
-            <Text style={[s.th, { flex: 1 }]}>JOGADOR</Text>
-            <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
-            <Text style={[s.th, { width: 28, textAlign: "center" }]}>V</Text>
-          </View>
-          {top10.map((art, idx) => (
-            <View
-              key={art.jogador_id}
-              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
-            >
-              <Text style={[s.td, { width: 20 }]}>{idx + 1}</Text>
-              <Text style={[s.td, { flex: 1 }]}>{art.jogador_nome}</Text>
-              <Text style={[s.tdMuted, { flex: 1 }]}>{art.equipe_nome}</Text>
-              <Text style={[s.tdGreen, { width: 28, textAlign: "center" }]}>
-                {art.vitorias}
-              </Text>
+        {/* ── Artilheiros Top 10 ── */}
+        <View style={s.section}>
+          <View wrap={false}>
+            <SectionTitle>Artilheiros — Top 10</SectionTitle>
+            <View style={s.tableHeader}>
+              <Text style={[s.th, { width: 24 }]}>#</Text>
+              <Text style={[s.th, { flex: 1 }]}>JOGADOR</Text>
+              <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
+              <Text style={[s.th, { width: 32, textAlign: "center" }]}>V</Text>
             </View>
-          ))}
+          </View>
+          {top10.map((art, idx) => {
+            const color = posColor(idx);
+            return (
+              <View
+                key={art.jogador_id}
+                style={idx % 2 === 0 ? s.tableRow : s.tableRowAlt}
+                wrap={false}
+              >
+                {color ? (
+                  <View style={[s.posBadge, { backgroundColor: color, width: 24 }]}>
+                    <Text style={s.posBadgeText}>{idx + 1}</Text>
+                  </View>
+                ) : (
+                  <Text style={[s.td, { width: 24 }]}>{idx + 1}</Text>
+                )}
+                <Text style={[s.td, { flex: 1 }]}>{art.jogador_nome}</Text>
+                <Text style={[s.tdMuted, { flex: 1 }]}>{art.equipe_nome}</Text>
+                <Text style={[s.tdGreen, { width: 32, textAlign: "center" }]}>
+                  {art.vitorias}
+                </Text>
+              </View>
+            );
+          })}
           {top10.length === 0 && (
             <Text style={s.tdMuted}>Nenhum artilheiro registrado.</Text>
           )}
@@ -412,27 +668,37 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
         </View>
 
         {/* ── Pontuação das Equipes ── */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Pontuação das Equipes</Text>
-          <View style={s.tableHeader}>
-            <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
-            <Text style={[s.th, { width: 48, textAlign: "center" }]}>TOTAL</Text>
-            <Text style={[s.th, { width: 40, textAlign: "center" }]}>MÉDIA</Text>
-            <Text style={[s.th, { width: 52, textAlign: "center" }]}>ÚLT. RODADA</Text>
+        <View style={s.section} break={true}>
+          <View wrap={false}>
+            <SectionTitle>Pontuação das Equipes</SectionTitle>
+            <View style={s.tableHeader}>
+              <Text style={[s.th, { flex: 1 }]}>EQUIPE</Text>
+              <Text style={[s.th, { width: 54, textAlign: "center" }]}>TOTAL</Text>
+              <Text style={[s.th, { width: 46, textAlign: "center" }]}>MÉDIA</Text>
+              <Text style={[s.th, { width: 62, textAlign: "center" }]}>ÚLT. RODADA</Text>
+            </View>
           </View>
           {pontuacoes.map((p, idx) => (
             <View
               key={p.equipe_id}
-              style={idx % 2 === 0 ? s.tableRow : s.tableRowHighlight}
+              style={idx % 2 === 0 ? s.tableRow : s.tableRowAlt}
+              wrap={false}
             >
-              <Text style={[s.td, { flex: 1 }]}>{p.equipe_nome}</Text>
-              <Text style={[s.tdGreen, { width: 48, textAlign: "center" }]}>
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <TeamLogo
+                  url={logoMap[p.equipe_id] ?? null}
+                  name={p.equipe_nome}
+                  size={16}
+                />
+                <Text style={[s.td, { flex: 1 }]}>{p.equipe_nome}</Text>
+              </View>
+              <Text style={[s.tdGreen, { width: 54, textAlign: "center" }]}>
                 {formatarPontuacao(p.pontuacao_total)}
               </Text>
-              <Text style={[s.td, { width: 40, textAlign: "center" }]}>
+              <Text style={[s.td, { width: 46, textAlign: "center" }]}>
                 {formatarPontuacao(p.media_por_rodada)}
               </Text>
-              <Text style={[s.td, { width: 52, textAlign: "center" }]}>
+              <Text style={[s.td, { width: 62, textAlign: "center" }]}>
                 {formatarPontuacao(p.pontuacao_ultima_rodada)}
               </Text>
             </View>
@@ -442,12 +708,10 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
           )}
         </View>
 
-        {/* ── Próxima Rodada com confrontos individuais ── */}
+        {/* ── Próxima Rodada ── */}
         {proximaRodadaNumero !== null && (
           <View style={s.section} wrap={false}>
-            <Text style={s.sectionTitle}>
-              Próxima Rodada — {proximaRodadaNumero}
-            </Text>
+            <SectionTitle>Próxima Rodada — {proximaRodadaNumero}</SectionTitle>
             {proximaConfrontos.map((c) => (
               <ConfrontoCardNextPDF key={c.id} c={c} />
             ))}
@@ -456,6 +720,19 @@ function SerieBDocument({ data }: { data: SerieBPdfData }) {
             )}
           </View>
         )}
+
+        {/* ── Footer (fixa em todas as páginas) ── */}
+        <View style={s.footer} fixed>
+          <Text style={s.footerText}>
+            Palpitão do Cartola FC · Série B · palpitaodocartola.vercel.app
+          </Text>
+          <Text
+            style={s.footerPage}
+            render={({ pageNumber, totalPages }) =>
+              `Página ${pageNumber} de ${totalPages}`
+            }
+          />
+        </View>
       </Page>
     </Document>
   );
@@ -546,7 +823,6 @@ export function AdminResumoSerieB() {
   const { data: artilheiros = [], isLoading: loadingArt } = useArtilheiros("B");
   const { data: pontuacoes = [], isLoading: loadingPonts } = usePontuacaoEquipes("B");
 
-  // Rodadas elegíveis para o dropdown principal (finalizada ou em_andamento), ordem decrescente
   const selectableRodadas = useMemo(
     () =>
       [...rodadas]
@@ -557,7 +833,6 @@ export function AdminResumoSerieB() {
     [rodadas]
   );
 
-  // Auto-seleciona a rodada mais recente quando os dados chegam
   useEffect(() => {
     if (selectedRodadaId === null && selectableRodadas.length > 0) {
       setSelectedRodadaId(selectableRodadas[0].id);
@@ -569,7 +844,6 @@ export function AdminResumoSerieB() {
     [rodadas, selectedRodadaId]
   );
 
-  // Candidatas para próxima rodada: em_andamento ou pendente, número maior que o selecionado
   const proximaRodadaCandidates = useMemo(() => {
     if (!selectedRodada) return [];
     return [...rodadas]
@@ -581,7 +855,6 @@ export function AdminResumoSerieB() {
       .sort((a, b) => a.numero - b.numero);
   }, [rodadas, selectedRodada]);
 
-  // Auto-seleciona a primeira candidata quando a rodada principal muda
   useEffect(() => {
     if (proximaRodadaCandidates.length > 0) {
       setProximaRodadaId(proximaRodadaCandidates[0].id);
@@ -603,7 +876,6 @@ export function AdminResumoSerieB() {
   const { data: proximaConfrontosRaw = [], isLoading: loadingProxConf } =
     useConfrontosForRodada(proximaRodada?.id ?? null);
 
-  // Filtra apenas equipes da Série B
   const confrontos = useMemo(
     () =>
       serieBIds
@@ -633,6 +905,14 @@ export function AdminResumoSerieB() {
     (!!selectedRodada && loadingConf) ||
     (!!proximaRodada && loadingProxConf);
 
+  const logoMap = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    (classificacao as ClassificacaoEquipe[]).forEach((row) => {
+      map[row.equipe.id] = row.equipe.logo_url ?? null;
+    });
+    return map;
+  }, [classificacao]);
+
   const pdfData: SerieBPdfData | null = useMemo(() => {
     if (!selectedRodada) return null;
     return {
@@ -643,6 +923,7 @@ export function AdminResumoSerieB() {
       pontuacoes,
       proximaRodadaNumero: proximaRodada?.numero ?? null,
       proximaConfrontos,
+      logoMap,
     };
   }, [
     selectedRodada,
@@ -652,6 +933,7 @@ export function AdminResumoSerieB() {
     pontuacoes,
     proximaRodada,
     proximaConfrontos,
+    logoMap,
   ]);
 
   const fileName = pdfData
@@ -681,7 +963,6 @@ export function AdminResumoSerieB() {
           </div>
         ) : (
           <div className="flex flex-col items-start gap-4">
-            {/* Seletores de rodada */}
             <div className="flex flex-wrap gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-foreground">
@@ -730,7 +1011,6 @@ export function AdminResumoSerieB() {
               </div>
             </div>
 
-            {/* Info */}
             {pdfData && (
               <div className="text-sm text-muted-foreground space-y-1">
                 <p>
@@ -760,20 +1040,27 @@ export function AdminResumoSerieB() {
                 document={<SerieBDocument data={pdfData} />}
                 fileName={fileName}
               >
-                {({ loading: pdfLoading }) => (
-                  <Button disabled={pdfLoading} className="gap-2">
-                    {pdfLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Gerando PDF…
-                      </>
-                    ) : (
-                      <>
-                        <FileDown className="h-4 w-4" />
-                        Download PDF — Rodada {pdfData.rodadaNumero}
-                      </>
+                {({ loading: pdfLoading, error: pdfError }) => (
+                  <div className="flex flex-col gap-1">
+                    <Button disabled={pdfLoading || !!pdfError} className="gap-2">
+                      {pdfLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Gerando PDF…
+                        </>
+                      ) : (
+                        <>
+                          <FileDown className="h-4 w-4" />
+                          Download PDF — Rodada {pdfData.rodadaNumero}
+                        </>
+                      )}
+                    </Button>
+                    {pdfError && (
+                      <p className="text-xs text-destructive">
+                        Erro ao gerar PDF: {String(pdfError)}
+                      </p>
                     )}
-                  </Button>
+                  </div>
                 )}
               </PDFDownloadLink>
             )}
