@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
+import { recalcularCopaClassificacao } from "@/lib/copaClassificacao";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Calculator, RefreshCw, CheckCircle, AlertCircle, Info } from "lucide-react";
@@ -23,10 +23,6 @@ interface LogEntry {
   timestamp: string;
 }
 
-function floorInt(v: number): number {
-  return Math.floor(v);
-}
-
 export function AdminCopaClassificacao() {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
@@ -44,115 +40,8 @@ export function AdminCopaClassificacao() {
     setLogs([]);
 
     try {
-      addLog("info", "Iniciando recálculo da classificação da Copa...");
+      await recalcularCopaClassificacao(addLog);
 
-      // Fetch all equipes
-      const { data: equipes } = await supabase.from("equipes").select("id, nome");
-      addLog("info", `${equipes?.length || 0} equipes encontradas`);
-
-      // Fetch finalized grupo rodadas (1-22)
-      const { data: rodadasFinalizadas } = await supabase
-        .from("copa_rodadas")
-        .select("id, numero, fase")
-        .eq("status", "finalizada")
-        .eq("fase", "grupos")
-        .order("numero");
-
-      addLog("info", `${rodadasFinalizadas?.length || 0} rodadas de grupos finalizadas`);
-
-      // Initialize stats
-      const stats = new Map<string, {
-        nome: string; pontos: number; jogos: number;
-        vitorias: number; empates: number; derrotas: number;
-        pontos_pro: number; pontos_contra: number;
-      }>();
-
-      for (const eq of equipes || []) {
-        stats.set(eq.id, {
-          nome: eq.nome, pontos: 0, jogos: 0,
-          vitorias: 0, empates: 0, derrotas: 0,
-          pontos_pro: 0, pontos_contra: 0,
-        });
-      }
-
-      // Process each rodada
-      for (const rodada of rodadasFinalizadas || []) {
-        addLog("info", `Processando Rodada ${rodada.numero}...`);
-
-        const { data: confrontos } = await supabase
-          .from("copa_confrontos")
-          .select("equipe1_id, equipe2_id, pontuacao_equipe1, pontuacao_equipe2, resultado")
-          .eq("rodada_id", rodada.id);
-
-        for (const c of confrontos || []) {
-          const s1 = stats.get(c.equipe1_id!);
-          const s2 = stats.get(c.equipe2_id!);
-          if (!s1 || !s2) continue;
-
-          const p1 = Number(c.pontuacao_equipe1 ?? 0);
-          const p2 = Number(c.pontuacao_equipe2 ?? 0);
-
-          s1.jogos++;
-          s2.jogos++;
-          s1.pontos_pro += p1;
-          s1.pontos_contra += p2;
-          s2.pontos_pro += p2;
-          s2.pontos_contra += p1;
-
-          if (c.resultado === "equipe1") {
-            s1.pontos += 3; s1.vitorias++; s2.derrotas++;
-          } else if (c.resultado === "equipe2") {
-            s2.pontos += 3; s2.vitorias++; s1.derrotas++;
-          } else if (c.resultado === "empate") {
-            s1.pontos += 1; s1.empates++;
-            s2.pontos += 1; s2.empates++;
-          }
-        }
-
-        addLog("success", `Rodada ${rodada.numero} processada`);
-      }
-
-      // Clear and update copa_classificacao
-      addLog("info", "Atualizando tabela copa_classificacao...");
-
-      for (const [equipeId, s] of stats) {
-        if (s.jogos === 0) continue; // Skip equipes with no games
-
-        const pp = floorInt(s.pontos_pro);
-        const pc = floorInt(s.pontos_contra);
-        const sp = pp - pc;
-        const aprov = s.jogos > 0 ? Math.round((s.pontos / (s.jogos * 3)) * 100) : 0;
-
-        const { data: existing } = await supabase
-          .from("copa_classificacao")
-          .select("id")
-          .eq("equipe_id", equipeId)
-          .maybeSingle();
-
-        const payload = {
-          equipe_id: equipeId,
-          pontos: s.pontos,
-          jogos: s.jogos,
-          vitorias: s.vitorias,
-          empates: s.empates,
-          derrotas: s.derrotas,
-          pontos_pro: pp,
-          pontos_contra: pc,
-          saldo_pontos: sp,
-          aproveitamento: aprov,
-          updated_at: new Date().toISOString(),
-        };
-
-        if (existing) {
-          await supabase.from("copa_classificacao").update(payload).eq("id", existing.id);
-        } else {
-          await supabase.from("copa_classificacao").insert(payload);
-        }
-
-        addLog("success", `${s.nome}: ${s.pontos}pts, ${pp}PP, ${pc}PC, ${sp}SP, ${aprov}%`);
-      }
-
-      addLog("success", "Classificação da Copa recalculada com sucesso!");
       toast({ title: "Sucesso", description: "Classificação da Copa recalculada!" });
       queryClient.invalidateQueries({ queryKey: ["copa_classificacao"] });
     } catch (error) {
