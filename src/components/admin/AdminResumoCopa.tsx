@@ -620,6 +620,7 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export function AdminResumoCopa() {
   const [selectedRodadaId, setSelectedRodadaId] = useState<string | null>(null);
+  const [proximaRodadaId, setProximaRodadaId] = useState<string | "none" | null>(null);
 
   const { data: rodadas = [], isLoading: loadingRodadas } = useCopaRodadas();
   const { data: classificacao = [], isLoading: loadingClass } = useCopaClassificacao();
@@ -643,14 +644,32 @@ export function AdminResumoCopa() {
     [rodadas, selectedRodadaId]
   );
 
-  const proximaRodada: CopaRodada | null = useMemo(() => {
-    if (!selectedRodada) return null;
-    return (
-      rodadas.find(
-        (r) => r.numero > selectedRodada.numero && r.status === "pendente"
-      ) ?? null
-    );
+  const proximaRodadaCandidates = useMemo(() => {
+    if (!selectedRodada) return [];
+    return [...rodadas]
+      .filter(
+        (r) =>
+          r.numero > selectedRodada.numero &&
+          (r.status === "em_andamento" || r.status === "pendente")
+      )
+      .sort((a, b) => a.numero - b.numero);
   }, [rodadas, selectedRodada]);
+
+  useEffect(() => {
+    if (proximaRodadaCandidates.length > 0) {
+      setProximaRodadaId(proximaRodadaCandidates[0].id);
+    } else {
+      setProximaRodadaId("none");
+    }
+  }, [selectedRodadaId, proximaRodadaCandidates]);
+
+  const proximaRodada: CopaRodada | null = useMemo(
+    () =>
+      proximaRodadaId && proximaRodadaId !== "none"
+        ? (rodadas.find((r) => r.id === proximaRodadaId) ?? null)
+        : null,
+    [rodadas, proximaRodadaId]
+  );
 
   const { data: confrontos = [], isLoading: loadingConf } = useCopaConfrontos(
     selectedRodada?.id ?? null
@@ -704,27 +723,54 @@ export function AdminResumoCopa() {
           </div>
         ) : (
           <div className="flex flex-col items-start gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Rodada
-              </label>
-              <Select
-                value={selectedRodadaId ?? ""}
-                onValueChange={setSelectedRodadaId}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Selecione a rodada" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectableRodadas.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      Rodada {r.numero} — {r.fase}
-                      {r.fase_detalhe ? ` (${r.fase_detalhe})` : ""}
-                      {r.status === "em_andamento" ? " · em andamento" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Rodada (resultado)
+                </label>
+                <Select
+                  value={selectedRodadaId ?? ""}
+                  onValueChange={setSelectedRodadaId}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Selecione a rodada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectableRodadas.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        Rodada {r.numero} — {r.fase}
+                        {r.fase_detalhe ? ` (${r.fase_detalhe})` : ""}
+                        {r.status === "em_andamento" ? " · em andamento" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Próxima rodada (no PDF)
+                </label>
+                <Select
+                  value={proximaRodadaId ?? "none"}
+                  onValueChange={(v) => setProximaRodadaId(v)}
+                  disabled={!selectedRodada}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Nenhuma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {proximaRodadaCandidates.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        Rodada {r.numero} — {r.fase}
+                        {r.fase_detalhe ? ` (${r.fase_detalhe})` : ""}
+                        {r.status === "em_andamento" ? " · em andamento" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {pdfData && (
