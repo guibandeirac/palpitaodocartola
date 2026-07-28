@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { supabase } from "@/integrations/supabase/client";
+import { recalcularCopaClassificacao } from "@/lib/copaClassificacao";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, CheckCircle, AlertCircle, Info, Flag } from "lucide-react";
@@ -211,101 +212,7 @@ export function AdminCopaPontuacoes() {
       addLog("success", "Status da rodada atualizado para 'finalizada'");
 
       // 2. Recalculate entire copa_classificacao from scratch
-      addLog("info", "Recalculando classificação da Copa...");
-
-      // 2a. Get all finalized group-stage rounds
-      const { data: rodadasFinalizadas } = await supabase
-        .from("copa_rodadas")
-        .select("id")
-        .eq("status", "finalizada")
-        .eq("fase", "grupos");
-
-      const rodadaIds = rodadasFinalizadas?.map((r) => r.id) || [];
-      addLog("info", `${rodadaIds.length} rodadas finalizadas na fase de grupos`);
-
-      // 2b. Get all confrontos from finalized rounds
-      const { data: todosConfrontos } = await supabase
-        .from("copa_confrontos")
-        .select("equipe1_id, equipe2_id, pontuacao_equipe1, pontuacao_equipe2, resultado")
-        .in("rodada_id", rodadaIds);
-
-      // 2c. Calculate stats for each team
-      const stats = new Map<string, {
-        pontos: number; jogos: number; vitorias: number; empates: number; derrotas: number;
-        pontos_pro: number; pontos_contra: number;
-      }>();
-
-      const initStats = () => ({ pontos: 0, jogos: 0, vitorias: 0, empates: 0, derrotas: 0, pontos_pro: 0, pontos_contra: 0 });
-
-      for (const c of todosConfrontos || []) {
-        if (!c.equipe1_id || !c.equipe2_id) continue;
-
-        if (!stats.has(c.equipe1_id)) stats.set(c.equipe1_id, initStats());
-        if (!stats.has(c.equipe2_id)) stats.set(c.equipe2_id, initStats());
-
-        const s1 = stats.get(c.equipe1_id)!;
-        const s2 = stats.get(c.equipe2_id)!;
-
-        s1.jogos++;
-        s2.jogos++;
-
-        const pe1 = Number(c.pontuacao_equipe1 || 0);
-        const pe2 = Number(c.pontuacao_equipe2 || 0);
-
-        s1.pontos_pro += pe1;
-        s1.pontos_contra += pe2;
-        s2.pontos_pro += pe2;
-        s2.pontos_contra += pe1;
-
-        if (c.resultado === "equipe1") {
-          s1.pontos += 3; s1.vitorias++; s2.derrotas++;
-        } else if (c.resultado === "equipe2") {
-          s2.pontos += 3; s2.vitorias++; s1.derrotas++;
-        } else if (c.resultado === "empate") {
-          s1.pontos += 1; s1.empates++;
-          s2.pontos += 1; s2.empates++;
-        }
-      }
-
-      // 2d. Update copa_classificacao for each team
-      for (const [equipeId, s] of stats) {
-        const saldo_pontos = s.pontos_pro - s.pontos_contra;
-        const aproveitamento = s.jogos > 0
-          ? Math.round((s.pontos / (s.jogos * 3)) * 10000) / 100
-          : 0;
-
-        // Upsert: check if exists
-        const { data: existing } = await supabase
-          .from("copa_classificacao")
-          .select("id")
-          .eq("equipe_id", equipeId)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase
-            .from("copa_classificacao")
-            .update({
-              pontos: s.pontos, jogos: s.jogos, vitorias: s.vitorias,
-              empates: s.empates, derrotas: s.derrotas,
-              pontos_pro: s.pontos_pro, pontos_contra: s.pontos_contra,
-              saldo_pontos, aproveitamento,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existing.id);
-        } else {
-          await supabase
-            .from("copa_classificacao")
-            .insert({
-              equipe_id: equipeId,
-              pontos: s.pontos, jogos: s.jogos, vitorias: s.vitorias,
-              empates: s.empates, derrotas: s.derrotas,
-              pontos_pro: s.pontos_pro, pontos_contra: s.pontos_contra,
-              saldo_pontos, aproveitamento,
-            });
-        }
-
-        addLog("info", `Equipe ${equipeId}: ${s.pontos}pts, ${s.jogos}J, SP:${saldo_pontos}`);
-      }
+      await recalcularCopaClassificacao(addLog);
 
       addLog("success", "✓ Rodada finalizada e classificação atualizada!");
       toast({ title: "Sucesso", description: "Rodada finalizada e classificação atualizada!" });

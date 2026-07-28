@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { supabase } from "@/integrations/supabase/client";
+import { recalcularCopaClassificacao } from "@/lib/copaClassificacao";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "lucide-react";
@@ -36,8 +37,14 @@ export function AdminCopaRodadas() {
 
       if (error) throw error;
 
-      toast({ title: "Sucesso", description: "Status atualizado!" });
+      // O status da rodada é o que define quais confrontos entram na
+      // classificação — sem recalcular aqui, a tabela congela na última vez
+      // que o "Finalizar Rodada" foi usado.
+      await recalcularCopaClassificacao();
+
+      toast({ title: "Sucesso", description: "Status atualizado e classificação recalculada!" });
       queryClient.invalidateQueries({ queryKey: ["copa_rodadas"] });
+      queryClient.invalidateQueries({ queryKey: ["copa_classificacao"] });
     } catch (error: any) {
       toast({ title: "Erro", description: error?.message || String(error), variant: "destructive" });
     }
