@@ -32,11 +32,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useRodadas } from "@/hooks/useRodadas";
 import { useConfrontosRodada } from "@/hooks/useConfrontosRodada";
-import { useJogadoresByEquipe } from "@/hooks/useJogadores";
+import { useJogadores, useJogadoresByEquipe } from "@/hooks/useJogadores";
+import { calcularSubstituicoes } from "@/lib/substituicoes";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { List, Pencil, Trash2, Calculator, RefreshCw, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { List, Pencil, Trash2, Calculator, RefreshCw, CheckCircle, AlertCircle, Info, ArrowLeftRight } from "lucide-react";
 import { formatarPontuacao, arredondar2Decimais } from "@/lib/pontuacao";
 
 interface LogEntry {
@@ -66,8 +67,26 @@ export function AdminConfrontosLista({ serie }: AdminConfrontosListaProps) {
       ),
     [confrontosTodos, equipeIdsSerie]
   );
+  const { data: jogadores = [] } = useJogadores();
+  const rodadaSelecionada = useMemo(
+    () => rodadas.find((r) => r.id === selectedRodada) ?? null,
+    [rodadas, selectedRodada]
+  );
+  // Trocas de elenco (rodada_entrada / rodada_saida) que os confrontos já
+  // criados desta rodada ainda não refletem.
+  const { substituicoes, semReposicao } = useMemo(
+    () =>
+      rodadaSelecionada
+        ? calcularSubstituicoes(confrontos, jogadores, rodadaSelecionada.numero)
+        : { substituicoes: [], semReposicao: [] },
+    [confrontos, jogadores, rodadaSelecionada]
+  );
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Aplicar substituições state
+  const [isSubstituindo, setIsSubstituindo] = useState(false);
+  const [showSubsDialog, setShowSubsDialog] = useState(false);
 
   // Recalcular classificação state
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -125,6 +144,66 @@ export function AdminConfrontosLista({ serie }: AdminConfrontosListaProps) {
       toast({ title: "Erro", description: `${error}`, variant: "destructive" });
     } finally {
       setIsRecalculating(false);
+    }
+  };
+
+  const handleAplicarSubstituicoes = async () => {
+    setShowSubsDialog(false);
+    setIsSubstituindo(true);
+    setLogs([]);
+    try {
+      let aplicadas = 0;
+      for (const sub of substituicoes) {
+        const update: Record<string, string> = {
+          [`${sub.lado}_original_id`]: sub.entra.id,
+        };
+        if (sub.atualizarEfetivo) {
+          update[`${sub.lado}_efetivo_id`] = sub.entra.id;
+        }
+
+        const { error } = await supabase
+          .from("confrontos_individuais")
+          .update(update)
+          .eq("id", sub.confrontoIndividualId);
+
+        if (error) {
+          addLog("error", `${sub.equipeNome} jogo ${sub.ordem}: ${error.message}`);
+          continue;
+        }
+
+        aplicadas++;
+        addLog(
+          "success",
+          `${sub.equipeNome} — jogo ${sub.ordem}: ${sub.sai.nome} → ${sub.entra.nome}`
+        );
+      }
+
+      for (const vaga of semReposicao) {
+        addLog(
+          "warning",
+          `${vaga.equipeNome} — jogo ${vaga.ordem}: ${vaga.sai.nome} saiu e não há jogador ativo livre para entrar. Ajuste o elenco ou edite o confronto manualmente.`
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["confrontos-rodada"] });
+
+      if (aplicadas > 0) {
+        toast({
+          title: "Sucesso",
+          description: `${aplicadas} substituição(ões) aplicada(s). Rode "Atualizar Pontuações" para recalcular a rodada.`,
+        });
+      } else {
+        toast({
+          title: "Nada aplicado",
+          description: "Nenhuma substituição pôde ser aplicada. Veja o log.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      addLog("error", `Erro: ${error}`);
+      toast({ title: "Erro", description: `${error}`, variant: "destructive" });
+    } finally {
+      setIsSubstituindo(false);
     }
   };
 
@@ -313,6 +392,27 @@ export function AdminConfrontosLista({ serie }: AdminConfrontosListaProps) {
               </Select>
             </div>
 
+            {selectedRodada && (
+              <Button
+                onClick={() => setShowSubsDialog(true)}
+                disabled={isSubstituindo || substituicoes.length === 0}
+                variant="outline"
+              >
+                {isSubstituindo ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Aplicando...
+                  </>
+                ) : (
+                  <>
+                    <ArrowLeftRight className="h-4 w-4 mr-2" />
+                    Aplicar Substituições
+                    {substituicoes.length > 0 && ` (${substituicoes.length})`}
+                  </>
+                )}
+              </Button>
+            )}
+
             {temClassificacao && (
               <Button
                 onClick={() => setShowRecalcDialog(true)}
@@ -333,6 +433,29 @@ export function AdminConfrontosLista({ serie }: AdminConfrontosListaProps) {
               </Button>
             )}
           </div>
+
+          {/* Aviso de substituições pendentes */}
+          {selectedRodada && (substituicoes.length > 0 || semReposicao.length > 0) && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-1.5">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                Elenco desatualizado nesta rodada
+              </div>
+              {substituicoes.map((sub) => (
+                <p key={`${sub.confrontoIndividualId}-${sub.lado}`} className="text-xs text-muted-foreground">
+                  {sub.equipeNome} — jogo {sub.ordem}:{" "}
+                  <span className="line-through">{sub.sai.nome}</span> →{" "}
+                  <span className="text-foreground">{sub.entra.nome}</span>
+                </p>
+              ))}
+              {semReposicao.map((vaga) => (
+                <p key={`${vaga.confrontoEquipeId}-${vaga.ordem}`} className="text-xs text-destructive">
+                  {vaga.equipeNome} — jogo {vaga.ordem}: {vaga.sai.nome} saiu e não há
+                  jogador ativo livre para entrar.
+                </p>
+              ))}
+            </div>
+          )}
 
           {/* Log de execução */}
           {logs.length > 0 && (
@@ -477,6 +600,43 @@ export function AdminConfrontosLista({ serie }: AdminConfrontosListaProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog aplicar substituições */}
+      <AlertDialog open={showSubsDialog} onOpenChange={setShowSubsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Aplicar substituições na Rodada {rodadaSelecionada?.numero}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Os confrontos abaixo passam a valer para o jogador que entrou no
+                  lugar de quem saiu do elenco. Rodadas anteriores não são afetadas.
+                </p>
+                <div className="space-y-1">
+                  {substituicoes.map((sub) => (
+                    <p key={`${sub.confrontoIndividualId}-${sub.lado}`} className="text-sm">
+                      <span className="text-foreground font-medium">{sub.equipeNome}</span>{" "}
+                      — jogo {sub.ordem}: {sub.sai.nome} → {sub.entra.nome}
+                    </p>
+                  ))}
+                </div>
+                <p>
+                  Depois de aplicar, rode "Atualizar Pontuações" para a rodada buscar
+                  os pontos do jogador certo no Cartola.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAplicarSubstituicoes}>
+              Aplicar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog recalcular */}
       <AlertDialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
