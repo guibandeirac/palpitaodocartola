@@ -19,6 +19,7 @@ import {
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { supabase } from "@/integrations/supabase/client";
 import { recalcularCopaClassificacao } from "@/lib/copaClassificacao";
+import { sincronizarCopaMataMata } from "@/lib/copaMataMata";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "lucide-react";
@@ -42,9 +43,25 @@ export function AdminCopaRodadas() {
       // que o "Finalizar Rodada" foi usado.
       await recalcularCopaClassificacao();
 
-      toast({ title: "Sucesso", description: "Status atualizado e classificação recalculada!" });
+      // O status também define quando o vencedor de um confronto de mata-mata
+      // pode ser cravado — reabrir uma rodada volta a deixar a chave em aberto.
+      let avisoMataMata: string | null = null;
+      try {
+        await sincronizarCopaMataMata();
+      } catch (syncError: any) {
+        avisoMataMata = syncError?.message || String(syncError);
+      }
+
+      toast({
+        title: "Sucesso",
+        description: avisoMataMata
+          ? `Status e classificação atualizados. Mata-mata não sincronizado: ${avisoMataMata}`
+          : "Status atualizado, classificação recalculada e mata-mata sincronizado!",
+      });
       queryClient.invalidateQueries({ queryKey: ["copa_rodadas"] });
       queryClient.invalidateQueries({ queryKey: ["copa_classificacao"] });
+      queryClient.invalidateQueries({ queryKey: ["copa_confrontos"] });
+      queryClient.invalidateQueries({ queryKey: ["copa_playoffs"] });
     } catch (error: any) {
       toast({ title: "Erro", description: error?.message || String(error), variant: "destructive" });
     }

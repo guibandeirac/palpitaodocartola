@@ -16,7 +16,13 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { sincronizarCopaMataMata } from "@/lib/copaMataMata";
 import { Trophy, Wand2, Save } from "lucide-react";
+
+interface LogEntry {
+  type: "info" | "success" | "warning" | "error";
+  message: string;
+}
 
 const FASES = [
   { value: "repescagem", label: "Repescagem", chaves: [null] },
@@ -33,6 +39,7 @@ export function AdminCopaPlayoffs() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, any>>({});
 
@@ -43,71 +50,25 @@ export function AdminCopaPlayoffs() {
     return (b.pontos_pro ?? 0) - (a.pontos_pro ?? 0);
   });
 
-  const handleGeneratePlayoffs = async () => {
+  const handleSincronizar = async () => {
     if (sortedClassificacao.length < 7) {
       toast({ title: "Classificação insuficiente", description: "Precisa de pelo menos 7 equipes na classificação", variant: "destructive" });
       return;
     }
 
     setIsGenerating(true);
+    setLogs([]);
     try {
-      // Delete existing playoffs
-      await supabase.from("copa_playoffs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-
-      const getEquipeId = (pos: number) => sortedClassificacao[pos]?.equipe_id;
-
-      // Create repescagem: 6º x 7º (single leg)
-      await supabase.from("copa_playoffs").insert({
-        fase: "repescagem",
-        chave: null,
-        equipe1_id: getEquipeId(5),
-        equipe2_id: getEquipeId(6),
-      });
-
-      // Create quartas A: 3º x vencedor repescagem (ida e volta)
-      await supabase.from("copa_playoffs").insert({
-        fase: "quartas",
-        chave: "A",
-        equipe1_id: getEquipeId(2),
-        equipe2_id: null, // filled after repescagem
-      });
-
-      // Create quartas B: 4º x 5º (ida e volta)
-      await supabase.from("copa_playoffs").insert({
-        fase: "quartas",
-        chave: "B",
-        equipe1_id: getEquipeId(3),
-        equipe2_id: getEquipeId(4),
-      });
-
-      // Create semifinal A: 1º x vencedor quartas B
-      await supabase.from("copa_playoffs").insert({
-        fase: "semifinal",
-        chave: "A",
-        equipe1_id: getEquipeId(0),
-        equipe2_id: null,
-      });
-
-      // Create semifinal B: 2º x vencedor quartas A
-      await supabase.from("copa_playoffs").insert({
-        fase: "semifinal",
-        chave: "B",
-        equipe1_id: getEquipeId(1),
-        equipe2_id: null,
-      });
-
-      // Create final
-      await supabase.from("copa_playoffs").insert({
-        fase: "final",
-        chave: null,
-        equipe1_id: null,
-        equipe2_id: null,
-      });
+      await sincronizarCopaMataMata((type, message) =>
+        setLogs((prev) => [...prev, { type, message }])
+      );
 
       queryClient.invalidateQueries({ queryKey: ["copa_playoffs"] });
-      toast({ title: "Playoffs gerados!", description: "Chaveamento criado com base na classificação" });
+      queryClient.invalidateQueries({ queryKey: ["copa_confrontos"] });
+      toast({ title: "Chaveamento sincronizado!", description: "Chaves, confrontos e vencedores atualizados" });
     } catch (e: any) {
-      toast({ title: "Erro", description: e.message, variant: "destructive" });
+      setLogs((prev) => [...prev, { type: "error", message: e?.message || String(e) }]);
+      toast({ title: "Erro", description: e?.message || String(e), variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -197,16 +158,46 @@ export function AdminCopaPlayoffs() {
           <Trophy className="h-5 w-5 text-blue-400" />
           Playoffs
         </h3>
-        <Button onClick={handleGeneratePlayoffs} disabled={isGenerating} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={handleSincronizar} disabled={isGenerating} className="bg-blue-600 hover:bg-blue-700">
           <Wand2 className="h-4 w-4 mr-2" />
-          {isGenerating ? "Gerando..." : "Gerar Chaveamento"}
+          {isGenerating ? "Sincronizando..." : "Sincronizar Chaveamento"}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        A sincronização monta as chaves a partir da classificação de grupos, cria os
+        confrontos das rodadas de mata-mata, importa os placares e propaga os vencedores.
+        Pode ser executada quantas vezes for necessário. O vencedor sai do agregado
+        (ida + volta) quando as rodadas estão finalizadas; em caso de empate avança o
+        melhor colocado na fase de grupos. A edição manual abaixo vale até a próxima
+        sincronização.
+      </p>
+
+      {logs.length > 0 && (
+        <div className="border border-border rounded-lg p-3 max-h-64 overflow-y-auto space-y-1 bg-secondary/30">
+          {logs.map((log, i) => (
+            <p
+              key={i}
+              className={
+                log.type === "error"
+                  ? "text-xs text-destructive"
+                  : log.type === "warning"
+                  ? "text-xs text-yellow-500"
+                  : log.type === "success"
+                  ? "text-xs text-blue-400"
+                  : "text-xs text-muted-foreground"
+              }
+            >
+              {log.message}
+            </p>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
       ) : sortedPlayoffs.length === 0 ? (
-        <p className="text-muted-foreground">Nenhum playoff cadastrado. Clique em "Gerar Chaveamento" para criar com base na classificação.</p>
+        <p className="text-muted-foreground">Nenhum playoff cadastrado. Clique em "Sincronizar Chaveamento" para criar com base na classificação.</p>
       ) : (
         <div className="space-y-4">
           {sortedPlayoffs.map((playoff) => {

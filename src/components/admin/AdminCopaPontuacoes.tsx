@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { supabase } from "@/integrations/supabase/client";
 import { recalcularCopaClassificacao } from "@/lib/copaClassificacao";
+import { sincronizarCopaMataMata } from "@/lib/copaMataMata";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, CheckCircle, AlertCircle, Info, Flag } from "lucide-react";
@@ -60,6 +61,16 @@ export function AdminCopaPontuacoes() {
 
       const rodadaCartola = rodada.rodada_cartola;
       addLog("info", `Copa Rodada ${rodada.numero} (Cartola ${rodadaCartola}, Fase: ${rodada.fase})`);
+
+      // 0. Nas rodadas de mata-mata o confronto pode ainda não existir (ele
+      // depende do vencedor da fase anterior). Sincroniza antes de buscar.
+      if (rodada.fase !== "grupos") {
+        try {
+          await sincronizarCopaMataMata(addLog);
+        } catch (syncError) {
+          addLog("warning", `Mata-mata não sincronizado: ${syncError}`);
+        }
+      }
 
       // 1. Buscar confrontos da rodada
       const { data: confrontos, error: confError } = await supabase
@@ -175,11 +186,22 @@ export function AdminCopaPontuacoes() {
         .update({ status: "em_andamento", updated_at: new Date().toISOString() })
         .eq("id", selectedRodada);
 
+      // 8. Espelha os placares recém-buscados nas chaves do mata-mata
+      // (o vencedor só sai quando a rodada for finalizada).
+      if (rodada.fase !== "grupos") {
+        try {
+          await sincronizarCopaMataMata(addLog);
+        } catch (syncError) {
+          addLog("warning", `Mata-mata não sincronizado: ${syncError}`);
+        }
+      }
+
       addLog("success", "Pontuações da Copa atualizadas com sucesso!");
       toast({ title: "Sucesso", description: "Pontuações da Copa atualizadas!" });
       queryClient.invalidateQueries({ queryKey: ["copa_confrontos"] });
       queryClient.invalidateQueries({ queryKey: ["copa_pontuacoes"] });
       queryClient.invalidateQueries({ queryKey: ["copa_classificacao"] });
+      queryClient.invalidateQueries({ queryKey: ["copa_playoffs"] });
     } catch (error) {
       addLog("error", `Erro: ${error}`);
       toast({ title: "Erro", description: `${error}`, variant: "destructive" });
@@ -214,11 +236,21 @@ export function AdminCopaPontuacoes() {
       // 2. Recalculate entire copa_classificacao from scratch
       await recalcularCopaClassificacao(addLog);
 
+      // 3. Sincroniza o mata-mata: importa os placares, define o vencedor da
+      // rodada que acabou de fechar e já cria os confrontos da fase seguinte.
+      // Não pode derrubar a finalização se falhar.
+      try {
+        await sincronizarCopaMataMata(addLog);
+      } catch (syncError) {
+        addLog("warning", `Mata-mata não sincronizado: ${syncError}`);
+      }
+
       addLog("success", "✓ Rodada finalizada e classificação atualizada!");
       toast({ title: "Sucesso", description: "Rodada finalizada e classificação atualizada!" });
       queryClient.invalidateQueries({ queryKey: ["copa_rodadas"] });
       queryClient.invalidateQueries({ queryKey: ["copa_classificacao"] });
       queryClient.invalidateQueries({ queryKey: ["copa_confrontos"] });
+      queryClient.invalidateQueries({ queryKey: ["copa_playoffs"] });
     } catch (error) {
       addLog("error", `Erro ao finalizar: ${error}`);
       toast({ title: "Erro", description: `Erro ao finalizar rodada: ${error}`, variant: "destructive" });
