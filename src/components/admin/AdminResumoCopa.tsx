@@ -21,9 +21,11 @@ import { FileDown, Loader2, FileText } from "lucide-react";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
 import { useCopaConfrontos } from "@/hooks/useCopaConfrontos";
 import { useCopaClassificacao } from "@/hooks/useCopaClassificacao";
+import { useCopaPlayoffs } from "@/hooks/useCopaPlayoffs";
 import type { CopaRodada } from "@/hooks/useCopaRodadas";
 import type { CopaConfronto } from "@/hooks/useCopaConfrontos";
 import type { CopaClassificacaoRow } from "@/hooks/useCopaClassificacao";
+import type { CopaPlayoff } from "@/hooks/useCopaPlayoffs";
 
 // ─── colours ────────────────────────────────────────────────────────────────
 const C = {
@@ -274,6 +276,39 @@ const s = StyleSheet.create({
     color: C.winner,
     fontFamily: "Helvetica-Bold",
   },
+  // ── agregado (ida + volta) ──
+  aggBar: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    borderTopStyle: "solid",
+    backgroundColor: C.dimBg,
+  },
+  aggCell: {
+    flex: 1,
+    paddingVertical: 5,
+    alignItems: "center",
+  },
+  aggCellDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: C.border,
+    borderLeftStyle: "solid",
+  },
+  aggLabel: {
+    fontSize: 7,
+    color: C.muted,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 2,
+  },
+  aggValue: {
+    fontSize: 10,
+    color: C.text,
+  },
+  aggValueStrong: {
+    fontSize: 11,
+    color: C.accent,
+    fontFamily: "Helvetica-Bold",
+  },
   // ── position badge ──
   posBadge: {
     height: 18,
@@ -390,15 +425,110 @@ function SectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
-function ConfrontoCardPDF({ c }: { c: CopaConfronto }) {
+// Placar de um confronto de ida e volta, já na ordem das equipes do card.
+interface Agregado {
+  ida: { p1: number; p2: number } | null;
+  volta: { p1: number; p2: number } | null;
+  total: { p1: number; p2: number } | null;
+  classificadoNome: string | null;
+}
+
+/**
+ * Casa cada confronto com a sua chave do mata-mata e devolve os placares de
+ * ida, volta e agregado na ordem das equipes do confronto. Só vale para as
+ * chaves de ida e volta — repescagem e final são jogo único.
+ */
+function montarAgregados(
+  playoffs: CopaPlayoff[],
+  confrontos: CopaConfronto[],
+  rodadas: CopaRodada[]
+): Record<string, Agregado> {
+  const mapa: Record<string, Agregado> = {};
+
+  // Uma perna de rodada pendente ainda não tem placar — o confronto pode já
+  // existir zerado, e 0 × 0 no PDF seria pior do que não mostrar nada.
+  const jogada = (rodadaId: string | null) => {
+    if (!rodadaId) return false;
+    const r = rodadas.find((rod) => rod.id === rodadaId);
+    return r?.status === "em_andamento" || r?.status === "finalizada";
+  };
+
+  for (const c of confrontos) {
+    const chave = playoffs.find(
+      (p) =>
+        p.rodada_volta_id != null &&
+        (p.rodada_ida_id === c.rodada_id || p.rodada_volta_id === c.rodada_id) &&
+        ((p.equipe1_id === c.equipe1_id && p.equipe2_id === c.equipe2_id) ||
+          (p.equipe1_id === c.equipe2_id && p.equipe2_id === c.equipe1_id))
+    );
+    if (!chave) continue;
+
+    // A chave pode guardar as equipes na ordem inversa à do confronto.
+    const mesmaOrdem = chave.equipe1_id === c.equipe1_id;
+    const par = (a: number | null, b: number | null) => {
+      if (a == null || b == null) return null;
+      return mesmaOrdem ? { p1: a, p2: b } : { p1: b, p2: a };
+    };
+
+    const ida = jogada(chave.rodada_ida_id)
+      ? par(chave.pontuacao_equipe1_ida, chave.pontuacao_equipe2_ida)
+      : null;
+    const volta = jogada(chave.rodada_volta_id)
+      ? par(chave.pontuacao_equipe1_volta, chave.pontuacao_equipe2_volta)
+      : null;
+
+    // Sem nenhuma perna jogada não há o que mostrar.
+    if (!ida && !volta) continue;
+
+    mapa[c.id] = {
+      ida,
+      volta,
+      total: ida && volta ? par(chave.pontuacao_equipe1_total, chave.pontuacao_equipe2_total) : null,
+      classificadoNome: chave.vencedor?.nome ?? null,
+    };
+  }
+
+  return mapa;
+}
+
+function AgregadoBar({ agregado }: { agregado: Agregado }) {
+  const { ida, volta, total } = agregado;
+  const cells: { label: string; valor: string; forte?: boolean }[] = [];
+
+  if (ida) cells.push({ label: "IDA", valor: `${formatPts(ida.p1)} × ${formatPts(ida.p2)}` });
+  if (volta)
+    cells.push({ label: "VOLTA", valor: `${formatPts(volta.p1)} × ${formatPts(volta.p2)}` });
+  if (total)
+    cells.push({
+      label: "AGREGADO",
+      valor: `${formatPts(total.p1)} × ${formatPts(total.p2)}`,
+      forte: true,
+    });
+  else cells.push({ label: "AGREGADO", valor: "aguardando volta" });
+
+  return (
+    <View style={s.aggBar}>
+      {cells.map((cell, i) => (
+        <View key={cell.label} style={i === 0 ? s.aggCell : [s.aggCell, s.aggCellDivider]}>
+          <Text style={s.aggLabel}>{cell.label}</Text>
+          <Text style={cell.forte ? s.aggValueStrong : s.aggValue}>{cell.valor}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ConfrontoCardPDF({ c, agregado }: { c: CopaConfronto; agregado?: Agregado }) {
   const p1 = c.pontuacao_equipe1;
   const p2 = c.pontuacao_equipe2;
   const isEq1Winner = c.resultado === "equipe1";
   const isEq2Winner = c.resultado === "equipe2";
   const isEmpate = c.resultado === "empate";
 
+  // Num mata-mata de ida e volta quem decide é o agregado, não a perna.
   let resultLabel = "";
-  if (isEq1Winner) resultLabel = `Vitória: ${c.equipe1.nome}`;
+  if (agregado?.classificadoNome) resultLabel = `Classificado: ${agregado.classificadoNome}`;
+  else if (isEq1Winner) resultLabel = `Vitória: ${c.equipe1.nome}`;
   else if (isEq2Winner) resultLabel = `Vitória: ${c.equipe2.nome}`;
   else if (isEmpate) resultLabel = "Empate";
 
@@ -437,9 +567,16 @@ function ConfrontoCardPDF({ c }: { c: CopaConfronto }) {
           <TeamLogo url={c.equipe2.logo_url} name={c.equipe2.nome} size={30} />
         </View>
       </View>
+      {agregado && <AgregadoBar agregado={agregado} />}
       {resultLabel !== "" && (
         <View style={s.confrontoResultBar}>
-          <Text style={isEmpate ? s.confrontoResultText : s.confrontoResultTextWinner}>
+          <Text
+            style={
+              isEmpate && !agregado?.classificadoNome
+                ? s.confrontoResultText
+                : s.confrontoResultTextWinner
+            }
+          >
             {resultLabel}
           </Text>
         </View>
@@ -448,7 +585,7 @@ function ConfrontoCardPDF({ c }: { c: CopaConfronto }) {
   );
 }
 
-function ConfrontoCardNextPDF({ c }: { c: CopaConfronto }) {
+function ConfrontoCardNextPDF({ c, agregado }: { c: CopaConfronto; agregado?: Agregado }) {
   return (
     <View style={s.confrontoCard} wrap={false}>
       <View style={s.confrontoHeader}>
@@ -464,6 +601,7 @@ function ConfrontoCardNextPDF({ c }: { c: CopaConfronto }) {
           <TeamLogo url={c.equipe2.logo_url} name={c.equipe2.nome} size={30} />
         </View>
       </View>
+      {agregado && <AgregadoBar agregado={agregado} />}
     </View>
   );
 }
@@ -477,6 +615,8 @@ interface CopaPdfData {
   proximaRodadaNumero: number | null;
   proximaFase: string | null;
   proximaConfrontos: CopaConfronto[];
+  /** Ida/volta/agregado por confronto de mata-mata, indexado pelo id do confronto. */
+  agregados: Record<string, Agregado>;
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
@@ -489,6 +629,7 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
     proximaRodadaNumero,
     proximaFase,
     proximaConfrontos,
+    agregados,
   } = data;
 
   return (
@@ -517,7 +658,7 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
         <View style={s.section}>
           <SectionTitle>Resultado — Rodada {rodadaNumero}</SectionTitle>
           {confrontos.map((c) => (
-            <ConfrontoCardPDF key={c.id} c={c} />
+            <ConfrontoCardPDF key={c.id} c={c} agregado={agregados[c.id]} />
           ))}
           {confrontos.length === 0 && (
             <Text style={s.tdMuted}>Nenhum confronto encontrado.</Text>
@@ -592,7 +733,7 @@ function CopaDocument({ data }: { data: CopaPdfData }) {
               {proximaFase ? ` (${proximaFase})` : ""}
             </SectionTitle>
             {proximaConfrontos.map((c) => (
-              <ConfrontoCardNextPDF key={c.id} c={c} />
+              <ConfrontoCardNextPDF key={c.id} c={c} agregado={agregados[c.id]} />
             ))}
             {proximaConfrontos.length === 0 && (
               <Text style={s.tdMuted}>Confrontos ainda não definidos.</Text>
@@ -624,6 +765,7 @@ export function AdminResumoCopa() {
 
   const { data: rodadas = [], isLoading: loadingRodadas } = useCopaRodadas();
   const { data: classificacao = [], isLoading: loadingClass } = useCopaClassificacao();
+  const { data: playoffs = [], isLoading: loadingPlayoffs } = useCopaPlayoffs();
 
   const selectableRodadas = useMemo(
     () =>
@@ -680,6 +822,7 @@ export function AdminResumoCopa() {
   const isLoading =
     loadingRodadas ||
     loadingClass ||
+    loadingPlayoffs ||
     (!!selectedRodada && loadingConf) ||
     (!!proximaRodada && loadingProxConf);
 
@@ -693,8 +836,21 @@ export function AdminResumoCopa() {
       proximaRodadaNumero: proximaRodada?.numero ?? null,
       proximaFase: proximaRodada ? faseLabel(proximaRodada) : null,
       proximaConfrontos,
+      agregados: montarAgregados(
+        playoffs,
+        [...confrontos, ...proximaConfrontos],
+        rodadas
+      ),
     };
-  }, [selectedRodada, confrontos, classificacao, proximaRodada, proximaConfrontos]);
+  }, [
+    selectedRodada,
+    confrontos,
+    classificacao,
+    proximaRodada,
+    proximaConfrontos,
+    playoffs,
+    rodadas,
+  ]);
 
   const fileName = pdfData
     ? `copa-rodada-${pdfData.rodadaNumero}.pdf`
