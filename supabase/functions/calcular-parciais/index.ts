@@ -354,8 +354,13 @@ serve(async (req) => {
         const escalou1 = pontuacoesParciais.get(ci.jogador1_original_id)?.escalou ?? false;
         const escalou2 = pontuacoesParciais.get(ci.jogador2_original_id)?.escalou ?? false;
 
-        const detalhes1 = pontuacoesParciais.get(ci.jogador1_original_id)?.detalhes;
-        const detalhes2 = pontuacoesParciais.get(ci.jogador2_original_id)?.detalhes;
+        const parcialOriginal1 = pontuacoesParciais.get(ci.jogador1_original_id);
+        const parcialOriginal2 = pontuacoesParciais.get(ci.jogador2_original_id);
+
+        // Quando o coringa entra, o campinho mostra o time do coringa e o
+        // time real do jogador substituído vai em "time_original".
+        const detalhes1 = sub1?.coringa ? pontuacoesParciais.get(coringaE1?.id)?.detalhes : parcialOriginal1?.detalhes;
+        const detalhes2 = sub2?.coringa ? pontuacoesParciais.get(coringaE2?.id)?.detalhes : parcialOriginal2?.detalhes;
 
         individuais.push({
           id: ci.id,
@@ -370,6 +375,7 @@ serve(async (req) => {
             pontos_campeonato: pontosCamp1,
             atletas: detalhes1?.atletasDetalhados || null,
             reservas: detalhes1?.reservasDetalhados || null,
+            time_original: sub1?.coringa ? montarTimeResumo(jogador1Original?.nome, parcialOriginal1) : null,
           },
           jogador2: {
             id: jogador2Original?.id,
@@ -381,10 +387,19 @@ serve(async (req) => {
             pontos_campeonato: pontosCamp2,
             atletas: detalhes2?.atletasDetalhados || null,
             reservas: detalhes2?.reservasDetalhados || null,
+            time_original: sub2?.coringa ? montarTimeResumo(jogador2Original?.nome, parcialOriginal2) : null,
           },
           vencedor,
         });
       }
+
+      // Coringa que não substituiu ninguém: mostrado à parte no card
+      const coringaForaE1 = coringaE1 && subsE1.size === 0
+        ? montarTimeResumo(coringaE1.nome, pontuacoesParciais.get(coringaE1.id))
+        : null;
+      const coringaForaE2 = coringaE2 && subsE2.size === 0
+        ? montarTimeResumo(coringaE2.nome, pontuacoesParciais.get(coringaE2.id))
+        : null;
 
       resultados.push({
         id: ce.id,
@@ -393,6 +408,8 @@ serve(async (req) => {
         vitorias_equipe1: vitoriasE1,
         vitorias_equipe2: vitoriasE2,
         confrontos_individuais: individuais,
+        coringa_fora_equipe1: coringaForaE1,
+        coringa_fora_equipe2: coringaForaE2,
       });
     }
 
@@ -640,6 +657,20 @@ function calcularPontuacaoTime(
 
   return { total, jogadoresAtivos: titulares, atletasDetalhados, reservasDetalhados };
 }
+
+function montarTimeResumo(
+  nome: string | undefined,
+  parcial: { pontuacao: number; escalou: boolean; detalhes: any } | undefined
+) {
+  return {
+    nome: nome || "",
+    pontuacao: parcial?.pontuacao ?? 0,
+    escalou: parcial?.escalou ?? false,
+    atletas: parcial?.detalhes?.atletasDetalhados || null,
+    reservas: parcial?.detalhes?.reservasDetalhados || null,
+  };
+}
+
 function aplicarCoringa(
   jogadores: Array<{ confronto_id: string; ordem: number; jogador: any; pontuacao: any }>,
   coringa: any | undefined,

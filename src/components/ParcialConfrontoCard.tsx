@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ConfrontoEquipeParcial, ConfrontoIndividualParcial } from "@/hooks/useParciais";
+import {
+  ConfrontoEquipeParcial,
+  ConfrontoIndividualParcial,
+  JogadorParcial,
+  TimeResumoParcial,
+} from "@/hooks/useParciais";
 import { cn } from "@/lib/utils";
 import { formatarPontuacao } from "@/lib/pontuacao";
 import {
@@ -24,6 +29,58 @@ function contarJogados(atletas: { status: string }[] | null | undefined): { joga
   return { jogados, total: atletas.length };
 }
 
+function TimeOriginal({ time }: { time: TimeResumoParcial }) {
+  const [aberto, setAberto] = useState(false);
+  const temTime = !!time.atletas && time.atletas.length > 0;
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        disabled={!temTime}
+        onClick={() => setAberto((v) => !v)}
+        className={cn(
+          "w-full flex items-center justify-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-[11px] sm:text-xs text-muted-foreground",
+          temTime && "hover:bg-secondary/40"
+        )}
+      >
+        <span className="truncate">
+          Time real de <span className="font-semibold text-foreground">{time.nome}</span>
+          {" · "}
+          {time.escalou ? `${formatarPontuacao(time.pontuacao)} pts` : "não escalou"}
+        </span>
+        {temTime && (
+          <ChevronDown className={cn("h-3 w-3 flex-shrink-0 transition-transform duration-200", aberto && "rotate-180")} />
+        )}
+      </button>
+      {aberto && temTime && (
+        <div className="mt-2 opacity-80 animate-fade-in">
+          <CampoFutebol atletas={time.atletas!} reservas={time.reservas || []} total={time.pontuacao} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimeJogador({ jogador }: { jogador: JogadorParcial }) {
+  if (!jogador.atletas || jogador.atletas.length === 0) return null;
+
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="text-center text-xs sm:text-sm font-semibold mb-2 truncate">
+        {jogador.eh_coringa && "🃏 "}
+        {jogador.nome}
+      </div>
+      <CampoFutebol
+        atletas={jogador.atletas}
+        reservas={jogador.reservas || []}
+        total={jogador.pontuacao}
+      />
+      {jogador.time_original && <TimeOriginal time={jogador.time_original} />}
+    </div>
+  );
+}
+
 function ConfrontoDetalhes({ individual }: { individual: ConfrontoIndividualParcial }) {
   const { jogador1, jogador2 } = individual;
   const hasData = (jogador1.atletas && jogador1.atletas.length > 0) || (jogador2.atletas && jogador2.atletas.length > 0);
@@ -32,28 +89,43 @@ function ConfrontoDetalhes({ individual }: { individual: ConfrontoIndividualParc
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-2 bg-muted/40 rounded-md px-1 py-3 mt-2 animate-fade-in">
-      {jogador1.atletas && jogador1.atletas.length > 0 && (
-        <div className="flex-1 min-w-0">
-          <div className="text-center text-xs sm:text-sm font-semibold mb-2 truncate">
-            {jogador1.nome}
-          </div>
-          <CampoFutebol
-            atletas={jogador1.atletas}
-            reservas={jogador1.reservas || []}
-            total={jogador1.pontuacao}
-          />
-        </div>
-      )}
-      {jogador2.atletas && jogador2.atletas.length > 0 && (
-        <div className="flex-1 min-w-0">
-          <div className="text-center text-xs sm:text-sm font-semibold mb-2 truncate">
-            {jogador2.nome}
-          </div>
-          <CampoFutebol
-            atletas={jogador2.atletas}
-            reservas={jogador2.reservas || []}
-            total={jogador2.pontuacao}
-          />
+      <TimeJogador jogador={jogador1} />
+      <TimeJogador jogador={jogador2} />
+    </div>
+  );
+}
+
+function CoringaFora({ coringa, alinhamento }: { coringa: TimeResumoParcial | null | undefined; alinhamento: "left" | "right" }) {
+  const [aberto, setAberto] = useState(false);
+
+  if (!coringa) return <div className="flex-1 min-w-0" />;
+
+  const temTime = !!coringa.atletas && coringa.atletas.length > 0;
+
+  return (
+    <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        disabled={!temTime}
+        onClick={() => setAberto((v) => !v)}
+        className={cn(
+          "w-full flex items-center gap-1 rounded-md bg-secondary/20 px-2 py-1.5 text-[11px] sm:text-xs",
+          alinhamento === "right" && "flex-row-reverse text-right",
+          temTime && "hover:bg-secondary/40"
+        )}
+      >
+        <span className="flex-shrink-0">🃏</span>
+        <span className="font-medium truncate">{coringa.nome}</span>
+        <span className="tabular-nums text-muted-foreground flex-shrink-0">
+          {coringa.escalou ? formatarPontuacao(coringa.pontuacao) : "não escalou"}
+        </span>
+        {temTime && (
+          <ChevronDown className={cn("h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform duration-200", aberto && "rotate-180")} />
+        )}
+      </button>
+      {aberto && temTime && (
+        <div className="bg-muted/40 rounded-md px-1 py-3 mt-2 animate-fade-in">
+          <CampoFutebol atletas={coringa.atletas!} reservas={coringa.reservas || []} total={coringa.pontuacao} />
         </div>
       )}
     </div>
@@ -262,6 +334,18 @@ export function ParcialConfrontoCard({ confronto }: ParcialConfrontoCardProps) {
               );
             })}
           </TooltipProvider>
+
+          {(confronto.coringa_fora_equipe1 || confronto.coringa_fora_equipe2) && (
+            <div className="pt-2 mt-2 border-t border-border/50">
+              <div className="text-[10px] sm:text-xs font-semibold text-muted-foreground text-center mb-1.5">
+                Coringa fora do confronto
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <CoringaFora coringa={confronto.coringa_fora_equipe1} alinhamento="left" />
+                <CoringaFora coringa={confronto.coringa_fora_equipe2} alinhamento="right" />
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

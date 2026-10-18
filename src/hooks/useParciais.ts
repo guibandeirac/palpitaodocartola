@@ -31,6 +31,14 @@ export interface ReservaDetalhe {
   status: "banco" | "aguardando" | "nao_entrou" | "jogo_invalido";
 }
 
+export interface TimeResumoParcial {
+  nome: string;
+  pontuacao: number;
+  escalou: boolean;
+  atletas: AtletaDetalhe[] | null;
+  reservas: ReservaDetalhe[] | null;
+}
+
 export interface JogadorParcial {
   id: string;
   nome: string;
@@ -41,6 +49,8 @@ export interface JogadorParcial {
   pontos_campeonato?: number;
   atletas?: AtletaDetalhe[] | null;
   reservas?: ReservaDetalhe[] | null;
+  /** Time real do jogador substituído quando o coringa entrou */
+  time_original?: TimeResumoParcial | null;
 }
 
 export interface ConfrontoIndividualParcial {
@@ -58,6 +68,9 @@ export interface ConfrontoEquipeParcial {
   vitorias_equipe1: number;
   vitorias_equipe2: number;
   confrontos_individuais: ConfrontoIndividualParcial[];
+  /** Coringa da equipe quando ele não substituiu ninguém */
+  coringa_fora_equipe1?: TimeResumoParcial | null;
+  coringa_fora_equipe2?: TimeResumoParcial | null;
 }
 
 export interface ParciaisData {
