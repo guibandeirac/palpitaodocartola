@@ -95,11 +95,28 @@ function ConfrontoDetalhes({ individual }: { individual: ConfrontoIndividualParc
   );
 }
 
-function CoringaFora({ coringa, alinhamento }: { coringa: TimeResumoParcial | null | undefined; alinhamento: "left" | "right" }) {
+interface TimeForaInfo {
+  time: TimeResumoParcial;
+  ehCoringa: boolean;
+}
+
+/** Time da equipe que não está jogando: o coringa que não entrou ou o jogador substituído por ele */
+function timeForaDaEquipe(
+  coringaFora: TimeResumoParcial | null | undefined,
+  individuais: ConfrontoIndividualParcial[],
+  lado: "jogador1" | "jogador2"
+): TimeForaInfo | null {
+  if (coringaFora) return { time: coringaFora, ehCoringa: true };
+  const substituido = individuais.find((i) => i[lado].eh_coringa && i[lado].time_original)?.[lado].time_original;
+  return substituido ? { time: substituido, ehCoringa: false } : null;
+}
+
+function TimeFora({ info, alinhamento }: { info: TimeForaInfo | null; alinhamento: "left" | "right" }) {
   const [aberto, setAberto] = useState(false);
 
-  if (!coringa) return <div className="flex-1 min-w-0" />;
+  if (!info) return <div className="flex-1 min-w-0" />;
 
+  const { time: coringa, ehCoringa } = info;
   const temTime = !!coringa.atletas && coringa.atletas.length > 0;
 
   return (
@@ -114,7 +131,7 @@ function CoringaFora({ coringa, alinhamento }: { coringa: TimeResumoParcial | nu
           temTime && "hover:bg-secondary/40"
         )}
       >
-        <span className="flex-shrink-0">🃏</span>
+        {ehCoringa && <span className="flex-shrink-0">🃏</span>}
         <span className="font-medium truncate">{coringa.nome}</span>
         <span className="tabular-nums text-muted-foreground flex-shrink-0">
           {coringa.escalou ? formatarPontuacao(coringa.pontuacao) : "não escalou"}
@@ -135,6 +152,8 @@ function CoringaFora({ coringa, alinhamento }: { coringa: TimeResumoParcial | nu
 export function ParcialConfrontoCard({ confronto }: ParcialConfrontoCardProps) {
   const { equipe1, equipe2, vitorias_equipe1, vitorias_equipe2, confrontos_individuais } = confronto;
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const timeFora1 = timeForaDaEquipe(confronto.coringa_fora_equipe1, confrontos_individuais, "jogador1");
+  const timeFora2 = timeForaDaEquipe(confronto.coringa_fora_equipe2, confrontos_individuais, "jogador2");
 
   const toggle = (id: string) => {
     setOpenIds((prev) => {
@@ -335,14 +354,14 @@ export function ParcialConfrontoCard({ confronto }: ParcialConfrontoCardProps) {
             })}
           </TooltipProvider>
 
-          {(confronto.coringa_fora_equipe1 || confronto.coringa_fora_equipe2) && (
+          {(timeFora1 || timeFora2) && (
             <div className="pt-2 mt-2 border-t border-border/50">
               <div className="text-[10px] sm:text-xs font-semibold text-muted-foreground text-center mb-1.5">
-                Coringa fora do confronto
+                Times fora do confronto
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <CoringaFora coringa={confronto.coringa_fora_equipe1} alinhamento="left" />
-                <CoringaFora coringa={confronto.coringa_fora_equipe2} alinhamento="right" />
+                <TimeFora info={timeFora1} alinhamento="left" />
+                <TimeFora info={timeFora2} alinhamento="right" />
               </div>
             </div>
           )}
