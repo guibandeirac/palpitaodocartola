@@ -13,6 +13,7 @@ function arredondar2Decimais(valor: number): number {
 
 interface AtletaPontuado {
   apelido: string;
+  foto?: string;
   pontuacao: number;
   entrou_em_campo: boolean;
   posicao_id: number;
@@ -26,6 +27,7 @@ const POSICAO_NOME: Record<number, string> = {
 interface AtletaTime {
   atleta_id: number;
   apelido?: string;
+  foto?: string;
   pontuacao?: number;
   posicao_id: number;
   entrou_em_campo?: boolean;
@@ -191,6 +193,10 @@ serve(async (req) => {
 
     // 7. For each jogador, fetch Cartola team and calculate parcial
     const apelidoMap = new Map<number, string>();
+    const fotoMap = new Map<number, string>();
+    for (const [atletaId, atleta] of Object.entries(atletasPontuados)) {
+      if (atleta.foto) fotoMap.set(Number(atletaId), atleta.foto);
+    }
     const pontuacoesParciais = new Map<string, { pontuacao: number; escalou: boolean; detalhes: any }>();
 
     for (const [jogadorId, jogador] of todosJogadores) {
@@ -207,9 +213,11 @@ serve(async (req) => {
         // Store apelidos
         for (const a of (data.atletas || [])) {
           if (a.apelido) apelidoMap.set(a.atleta_id, a.apelido);
+          if (a.foto) fotoMap.set(a.atleta_id, a.foto);
         }
         for (const r of (data.reservas || [])) {
           if (r.apelido) apelidoMap.set(r.atleta_id, r.apelido);
+          if (r.foto) fotoMap.set(r.atleta_id, r.foto);
         }
 
         if (!escalou) {
@@ -226,7 +234,7 @@ serve(async (req) => {
           pontos: data.pontos,
         };
 
-        const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap);
+        const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
         pontuacoesParciais.set(jogadorId, {
           pontuacao: arredondar2Decimais(resultado.total),
           escalou: true,
@@ -316,7 +324,8 @@ function calcularPontuacaoTime(
   clubesComJogoIniciado: Set<number>,
   clubesJogoInvalido: Set<number>,
   clubeAbreviacao: Map<number, string>,
-  apelidoMap: Map<number, string>
+  apelidoMap: Map<number, string>,
+  fotoMap: Map<number, string>
 ): { total: number; atletasDetalhados: any[]; reservasDetalhados: any[] } {
   const capitaoId = time.capitao_id;
   const reservaLuxoId = time.reserva_luxo_id;
@@ -450,6 +459,7 @@ function calcularPontuacaoTime(
     const pontuadoOriginal = originalId ? atletasPontuados[String(originalId)] : null;
     const nome = apelidoMap.get(t.atleta_id) || pontuado?.apelido || pontuadoOriginal?.apelido || apelidoMap.get(originalId || 0) || "Atleta";
     const clube = clubeAbreviacao.get(t.clube_id) || String(t.clube_id);
+    const foto = fotoMap.get(t.atleta_id) || (originalId ? fotoMap.get(originalId) : null) || null;
     const posicao = POSICAO_NOME[t.posicao_id] || String(t.posicao_id);
 
     let status = "ok";
@@ -469,6 +479,7 @@ function calcularPontuacaoTime(
     return {
       nome,
       clube,
+      foto,
       posicao,
       posicao_id: t.posicao_id,
       pontuacao: pontuacaoFinal,
@@ -487,6 +498,7 @@ function calcularPontuacaoTime(
     const nome = apelidoMap.get(r.atleta_id) || pontuado?.apelido || (r as any).apelido || "Atleta";
     const clubeId = pontuado?.clube_id || (r as any).clube_id || 0;
     const clube = clubeAbreviacao.get(clubeId) || String(clubeId);
+    const foto = fotoMap.get(r.atleta_id) || null;
     const posicao = POSICAO_NOME[r.posicao_id] || String(r.posicao_id);
     const entrou = reservaEntrou.get(r.atleta_id);
     const ehLuxo = r.atleta_id === reservaLuxoId;
@@ -503,6 +515,7 @@ function calcularPontuacaoTime(
     return {
       nome,
       clube,
+      foto,
       posicao,
       posicao_id: r.posicao_id,
       pontuacao: pontuado ? arredondar2Decimais(pontuado.pontuacao) : null,

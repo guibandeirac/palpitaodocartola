@@ -6,145 +6,18 @@ import { cn } from "@/lib/utils";
 import { formatarPontuacao } from "@/lib/pontuacao";
 import { TeamLogo } from "@/components/TeamLogo";
 import type { CopaConfrontoParcial, CopaJogadorParcial } from "@/hooks/useCopaParciais";
-import type { AtletaDetalhe, ReservaDetalhe } from "@/hooks/useParciais";
-
-const POSICAO_ORDER: Record<string, number> = {
-  GOL: 0, ZAG: 1, LAT: 2, MEI: 3, ATA: 4, TEC: 5,
-};
-
-function sortByPosition<T extends { posicao: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => (POSICAO_ORDER[a.posicao] ?? 99) - (POSICAO_ORDER[b.posicao] ?? 99));
-}
-
-function groupByPosition<T extends { posicao: string }>(items: T[]): T[][] {
-  const sorted = sortByPosition(items);
-  const groups: T[][] = [];
-  let currentPos = "";
-  for (const item of sorted) {
-    if (item.posicao !== currentPos) {
-      groups.push([]);
-      currentPos = item.posicao;
-    }
-    groups[groups.length - 1].push(item);
-  }
-  return groups;
-}
-
-function AtletaRow({ atleta, saiu }: { atleta: AtletaDetalhe & { entrou?: boolean; substituiuNome?: string | null; ehLuxoEntrou?: boolean }; saiu?: boolean }) {
-  let pontuacaoTexto: React.ReactNode;
-
-  if (saiu) {
-    pontuacaoTexto = <span className="text-destructive/70 text-[9px]">↓ saiu</span>;
-  } else if (atleta.status === "jogo_invalido") {
-    pontuacaoTexto = <span className="text-destructive/70">🚫</span>;
-  } else if (atleta.status === "aguardando") {
-    pontuacaoTexto = <span className="text-muted-foreground">⏳</span>;
-  } else if (atleta.status === "nao_entrou") {
-    pontuacaoTexto = <span>❌</span>;
-  } else if (atleta.eh_capitao && atleta.pontuacao_base != null) {
-    pontuacaoTexto = (
-      <span className="tabular-nums">
-        <span className="text-muted-foreground">{formatarPontuacao(atleta.pontuacao_base)}</span>
-        <span className="text-[8px] text-muted-foreground mx-0.5">×1.5</span>
-        <span className="font-bold">{formatarPontuacao(atleta.pontuacao)}</span>
-      </span>
-    );
-  } else {
-    pontuacaoTexto = <span className="tabular-nums font-medium">{formatarPontuacao(atleta.pontuacao)}</span>;
-  }
-
-  return (
-    <div className={cn(
-      "flex items-center justify-between gap-1 text-[10px] sm:text-xs leading-tight py-[1px]",
-      saiu && "opacity-50",
-    )}>
-      <span className={cn(
-        "truncate flex-1 flex items-center gap-0.5",
-        atleta.status === "aguardando" && "text-muted-foreground",
-        (atleta.status === "jogo_invalido" || atleta.status === "nao_entrou") && "text-muted-foreground line-through",
-      )}>
-        {atleta.eh_capitao && <span className="text-yellow-500 flex-shrink-0">⭐</span>}
-        {atleta.eh_reserva_luxo && <span className="flex-shrink-0">🌟</span>}
-        <span className="truncate font-bold">{atleta.nome}</span>
-        <span className="text-muted-foreground flex-shrink-0 ml-0.5">{atleta.posicao}/{atleta.clube}</span>
-        {atleta.entrou && !saiu && (
-          <span className="text-[8px] sm:text-[9px] text-green-500 font-semibold flex-shrink-0 ml-0.5">
-            ↑{atleta.ehLuxoEntrou && atleta.substituiuNome ? ` ${atleta.substituiuNome}` : ""}
-          </span>
-        )}
-      </span>
-      <span className="flex-shrink-0 ml-1">{pontuacaoTexto}</span>
-    </div>
-  );
-}
+import { CampoFutebol } from "@/components/CampoFutebol";
 
 function JogadorDetalhes({ jogador }: { jogador: CopaJogadorParcial }) {
-  const atletas = jogador.atletas || [];
-  const reservas = jogador.reservas || [];
-
-  if (atletas.length === 0) return null;
-
-  const enteredReserves = reservas.filter(r => r.entrou);
-  const benchReserves = reservas.filter(r => !r.entrou);
-
-  const displayTitulares = atletas.map(a => ({
-    ...a,
-    entrou: a.entrou_como_reserva,
-    substituiuNome: null as string | null,
-    ehLuxoEntrou: a.eh_reserva_luxo,
-  }));
-
-  for (const er of enteredReserves) {
-    const match = displayTitulares.find(dt => dt.entrou && dt.eh_reserva_luxo === er.eh_reserva_luxo && dt.posicao === er.posicao);
-    if (match && er.substituiu_nome) match.substituiuNome = er.substituiu_nome;
-  }
-
-  const replacedTitulares = enteredReserves.map(er => ({
-    nome: er.substituiu_nome || "Atleta",
-    clube: "", posicao: er.posicao, posicao_id: er.posicao_id,
-    pontuacao: 0, pontuacao_base: 0,
-    eh_capitao: false, eh_reserva_luxo: false,
-    substituido: false, entrou_como_reserva: false,
-    status: "banco" as const,
-    saiu: true,
-  }));
-
-  const displayReserves = [
-    ...replacedTitulares.map(rt => ({ ...rt, entrou: false, substituiuNome: null as string | null, ehLuxoEntrou: false })),
-    ...benchReserves.map(br => ({
-      nome: br.nome, clube: br.clube, posicao: br.posicao, posicao_id: br.posicao_id,
-      pontuacao: br.pontuacao ?? 0, pontuacao_base: br.pontuacao ?? 0,
-      eh_capitao: false, eh_reserva_luxo: br.eh_reserva_luxo,
-      substituido: false, entrou_como_reserva: false,
-      status: br.status as any,
-      entrou: br.entrou, substituiuNome: br.substituiu_nome as string | null,
-      ehLuxoEntrou: br.eh_luxo_entrou, saiu: false,
-    })),
-  ];
-
-  const titularGroups = groupByPosition(displayTitulares);
-  const reserveGroups = groupByPosition(displayReserves);
+  if (!jogador.atletas || jogador.atletas.length === 0) return null;
 
   return (
-    <div className="mt-1 bg-muted/30 rounded-md p-2 text-[10px]">
-      <div className="text-[9px] font-semibold text-muted-foreground uppercase mb-0.5">Titulares</div>
-      {titularGroups.map((group, gi) => (
-        <div key={gi}>
-          {gi > 0 && <div className="border-t border-border/30 my-0.5" />}
-          {group.map((a, i) => <AtletaRow key={`${gi}-${i}`} atleta={a} />)}
-        </div>
-      ))}
-      <div className="text-[9px] font-semibold text-muted-foreground uppercase mt-1 mb-0.5">Reservas</div>
-      {reserveGroups.map((group, gi) => (
-        <div key={gi}>
-          {gi > 0 && <div className="border-t border-border/30 my-0.5" />}
-          {group.map((r, i) => <AtletaRow key={`r${gi}-${i}`} atleta={r} saiu={(r as any).saiu} />)}
-        </div>
-      ))}
-      <div className="flex items-center justify-between text-[10px] font-bold border-t border-border/50 pt-0.5 mt-1">
-        <span>Total</span>
-        <span className="tabular-nums">{formatarPontuacao(jogador.pontuacao)}</span>
-      </div>
+    <div className="mt-1 bg-muted/40 rounded-md px-1 py-3 animate-fade-in">
+      <CampoFutebol
+        atletas={jogador.atletas}
+        reservas={jogador.reservas || []}
+        total={jogador.pontuacao}
+      />
     </div>
   );
 }
