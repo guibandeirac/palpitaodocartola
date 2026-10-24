@@ -56,6 +56,46 @@ interface JogadorAtivo {
   jogo_invalido: boolean;
 }
 
+const LIMITE_REQUISICOES_SIMULTANEAS = 8;
+
+// Retorna o JSON da resposta, ou null se o status não for OK.
+// Erros de rede são propagados.
+async function buscarJson(url: string): Promise<any> {
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    await resp.body?.cancel();
+    return null;
+  }
+  return await resp.json();
+}
+
+// Como Array.map assíncrono, mas com no máximo `limite` chamadas em andamento.
+// Mantém a ordem dos itens no resultado.
+async function mapComLimite<T, R>(itens: T[], limite: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const resultados = new Array<R>(itens.length);
+  let proximo = 0;
+  const workers = Array.from({ length: Math.min(limite, itens.length) }, async () => {
+    while (proximo < itens.length) {
+      const i = proximo++;
+      resultados[i] = await fn(itens[i]);
+    }
+  });
+  await Promise.all(workers);
+  return resultados;
+}
+
+// Busca o time de cada jogador no Cartola. data = null quando a busca falha.
+function buscarTimes(jogadores: Map<string, any>): Promise<{ jogadorId: string; data: any }[]> {
+  return mapComLimite(Array.from(jogadores), LIMITE_REQUISICOES_SIMULTANEAS, async ([jogadorId, jogador]) => {
+    try {
+      return { jogadorId, data: await buscarJson(`https://api.cartola.globo.com/time/id/${jogador.id_cartola}`) };
+    } catch (e) {
+      console.error(`Erro ao buscar time de ${jogador.nome}:`, e);
+      return { jogadorId, data: null };
+    }
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -139,29 +179,33 @@ serve(async (req) => {
     const todosJogadores = new Map<string, any>();
     jogadores.forEach((j: any) => todosJogadores.set(j.id, j));
 
-    // 5. Fetch /atletas/pontuados ONCE
-    console.log("Buscando atletas pontuados...");
+    // 5. Buscar no Cartola tudo ao mesmo tempo: pontuados, partidas e o time
+    // de cada jogador (com limite de requisições simultâneas)
+    console.log("Buscando dados do Cartola...");
+    const [[pontuadosResult, partidasResult], timesBuscados] = await Promise.all([
+      Promise.allSettled([
+        buscarJson("https://api.cartola.globo.com/atletas/pontuados"),
+        buscarJson(`https://api.cartola.globo.com/partidas/${rodadaCartola}`),
+      ]),
+      buscarTimes(todosJogadores),
+    ]);
+
     let atletasPontuados: Record<string, AtletaPontuado> = {};
-    try {
-      const pontuadosResp = await fetch("https://api.cartola.globo.com/atletas/pontuados");
-      if (pontuadosResp.ok) {
-        const pontuadosData = await pontuadosResp.json();
-        atletasPontuados = pontuadosData.atletas || {};
-      }
-    } catch (e) {
-      console.error("Erro ao buscar atletas pontuados:", e);
+    if (pontuadosResult.status === "fulfilled") {
+      atletasPontuados = pontuadosResult.value?.atletas || {};
+    } else {
+      console.error("Erro ao buscar atletas pontuados:", pontuadosResult.reason);
     }
     console.log(`Atletas pontuados: ${Object.keys(atletasPontuados).length}`);
 
-    // 6. Fetch /partidas/{rodada_cartola} ONCE
+    // 6. Process /partidas/{rodada_cartola}
     const clubesComJogoIniciado = new Set<number>();
     const clubesJogoInvalido = new Set<number>();
     const clubeAbreviacao = new Map<number, string>();
     const statusJogoComecou = ["PRIMEIRO_TEMPO", "INTERVALO", "SEGUNDO_TEMPO", "POS_JOGO"];
-    try {
-      const partidasResp = await fetch(`https://api.cartola.globo.com/partidas/${rodadaCartola}`);
-      if (partidasResp.ok) {
-        const partidasData = await partidasResp.json();
+    if (partidasResult.status === "fulfilled") {
+      const partidasData = partidasResult.value;
+      if (partidasData) {
         const partidas = partidasData.partidas || partidasData || [];
         const clubesMap = partidasData.clubes || {};
         for (const [clubeId, clubeInfo] of Object.entries(clubesMap) as any) {
@@ -182,8 +226,8 @@ serve(async (req) => {
           }
         }
       }
-    } catch (e) {
-      console.error("Erro ao buscar partidas:", e);
+    } else {
+      console.error("Erro ao buscar partidas:", partidasResult.reason);
       for (const atletaId of Object.keys(atletasPontuados)) {
         const atleta = atletasPontuados[atletaId];
         if (atleta.clube_id) clubesComJogoIniciado.add(atleta.clube_id);
@@ -191,7 +235,7 @@ serve(async (req) => {
     }
     console.log(`Clubes com jogo iniciado: ${clubesComJogoIniciado.size}`);
 
-    // 7. For each jogador, fetch Cartola team and calculate parcial
+    // 7. For each jogador, calculate parcial from their Cartola team
     const apelidoMap = new Map<number, string>();
     const fotoMap = new Map<number, string>();
     for (const [atletaId, atleta] of Object.entries(atletasPontuados)) {
@@ -199,53 +243,44 @@ serve(async (req) => {
     }
     const pontuacoesParciais = new Map<string, { pontuacao: number; escalou: boolean; detalhes: any }>();
 
-    for (const [jogadorId, jogador] of todosJogadores) {
-      try {
-        const resp = await fetch(`https://api.cartola.globo.com/time/id/${jogador.id_cartola}`);
-        if (!resp.ok) {
-          pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
-          continue;
-        }
-        const data = await resp.json();
-        const rodadaTimeId = data.time?.rodada_time_id || 0;
-        const escalou = rodadaTimeId >= (rodadaCartola || 0);
-
-        // Store apelidos
-        for (const a of (data.atletas || [])) {
-          if (a.apelido) apelidoMap.set(a.atleta_id, a.apelido);
-          if (a.foto) fotoMap.set(a.atleta_id, a.foto);
-        }
-        for (const r of (data.reservas || [])) {
-          if (r.apelido) apelidoMap.set(r.atleta_id, r.apelido);
-          if (r.foto) fotoMap.set(r.atleta_id, r.foto);
-        }
-
-        if (!escalou) {
-          pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
-          continue;
-        }
-
-        const time: TimeCartola = {
-          atletas: data.atletas || [],
-          reservas: data.reservas || [],
-          capitao_id: data.capitao_id,
-          reserva_luxo_id: data.reserva_luxo_id,
-          rodada_time_id: rodadaTimeId,
-          pontos: data.pontos,
-        };
-
-        const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
-        pontuacoesParciais.set(jogadorId, {
-          pontuacao: arredondar2Decimais(resultado.total),
-          escalou: true,
-          detalhes: resultado,
-        });
-
-        await new Promise((r) => setTimeout(r, 200));
-      } catch (e) {
-        console.error(`Erro ao buscar time de ${jogador.nome}:`, e);
+    for (const { jogadorId, data } of timesBuscados) {
+      if (!data) {
         pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
+        continue;
       }
+      const rodadaTimeId = data.time?.rodada_time_id || 0;
+      const escalou = rodadaTimeId >= (rodadaCartola || 0);
+
+      // Store apelidos
+      for (const a of (data.atletas || [])) {
+        if (a.apelido) apelidoMap.set(a.atleta_id, a.apelido);
+        if (a.foto) fotoMap.set(a.atleta_id, a.foto);
+      }
+      for (const r of (data.reservas || [])) {
+        if (r.apelido) apelidoMap.set(r.atleta_id, r.apelido);
+        if (r.foto) fotoMap.set(r.atleta_id, r.foto);
+      }
+
+      if (!escalou) {
+        pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
+        continue;
+      }
+
+      const time: TimeCartola = {
+        atletas: data.atletas || [],
+        reservas: data.reservas || [],
+        capitao_id: data.capitao_id,
+        reserva_luxo_id: data.reserva_luxo_id,
+        rodada_time_id: rodadaTimeId,
+        pontos: data.pontos,
+      };
+
+      const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
+      pontuacoesParciais.set(jogadorId, {
+        pontuacao: arredondar2Decimais(resultado.total),
+        escalou: true,
+        detalhes: resultado,
+      });
     }
 
     // Also store apelidos from pontuados
