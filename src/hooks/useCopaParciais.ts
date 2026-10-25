@@ -40,6 +40,8 @@ export function useCopaParciais() {
   const fetchParciais = useCallback(async (rodadaNumero: number) => {
     setIsLoading(true);
     setError(null);
+    // Mantém a parcial na tela durante a atualização, mas limpa ao trocar de rodada
+    setData((atual) => (atual?.rodada.numero === rodadaNumero ? atual : null));
 
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke(
@@ -64,7 +66,7 @@ export function useCopaParciais() {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = setInterval(() => {
         if (rodadaNumeroRef.current) fetchParciais(rodadaNumeroRef.current);
-      }, 5 * 60 * 1000);
+      }, 3 * 60 * 1000);
     },
     [fetchParciais]
   );

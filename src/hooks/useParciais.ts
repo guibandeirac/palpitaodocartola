@@ -89,6 +89,8 @@ export function useParciais() {
   const fetchParciais = useCallback(async (rodadaNumero: number) => {
     setIsLoading(true);
     setError(null);
+    // Mantém a parcial na tela durante a atualização, mas limpa ao trocar de rodada
+    setData((atual) => (atual?.rodada.numero === rodadaNumero ? atual : null));
 
     try {
       const { data: result, error: fnError } = await supabase.functions.invoke(
@@ -107,7 +109,7 @@ export function useParciais() {
     }
   }, []);
 
-  // Auto-refresh every 5 minutes
+  // Auto-refresh every 3 minutes (o Cartola atualiza os pontuados a cada ~3 min)
   const rodadaNumeroRef = useRef<number | null>(null);
 
   const startAutoRefresh = useCallback(
@@ -118,7 +120,7 @@ export function useParciais() {
         if (rodadaNumeroRef.current) {
           fetchParciais(rodadaNumeroRef.current);
         }
-      }, 5 * 60 * 1000);
+      }, 3 * 60 * 1000);
     },
     [fetchParciais]
   );

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buscarJson, buscarTimes, lerCacheTimes, criarCronometro } from "../_shared/cartola-times.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,52 +57,13 @@ interface JogadorAtivo {
   jogo_invalido: boolean;
 }
 
-const LIMITE_REQUISICOES_SIMULTANEAS = 8;
-
-// Retorna o JSON da resposta, ou null se o status não for OK.
-// Erros de rede são propagados.
-async function buscarJson(url: string): Promise<any> {
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    await resp.body?.cancel();
-    return null;
-  }
-  return await resp.json();
-}
-
-// Como Array.map assíncrono, mas com no máximo `limite` chamadas em andamento.
-// Mantém a ordem dos itens no resultado.
-async function mapComLimite<T, R>(itens: T[], limite: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const resultados = new Array<R>(itens.length);
-  let proximo = 0;
-  const workers = Array.from({ length: Math.min(limite, itens.length) }, async () => {
-    while (proximo < itens.length) {
-      const i = proximo++;
-      resultados[i] = await fn(itens[i]);
-    }
-  });
-  await Promise.all(workers);
-  return resultados;
-}
-
-// Busca o time de cada jogador no Cartola. data = null quando a busca falha.
-function buscarTimes(jogadores: Map<string, any>): Promise<{ jogadorId: string; data: any }[]> {
-  return mapComLimite(Array.from(jogadores), LIMITE_REQUISICOES_SIMULTANEAS, async ([jogadorId, jogador]) => {
-    try {
-      return { jogadorId, data: await buscarJson(`https://api.cartola.globo.com/time/id/${jogador.id_cartola}`) };
-    } catch (e) {
-      console.error(`Erro ao buscar time de ${jogador.nome}:`, e);
-      return { jogadorId, data: null };
-    }
-  });
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const cronometro = criarCronometro();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
@@ -129,38 +91,56 @@ serve(async (req) => {
     }
 
     const rodadaCartola = rodada.rodada_cartola;
+    cronometro.marcar("rodada");
     console.log(`Copa Rodada ${rodada.numero}, Cartola: ${rodadaCartola}`);
 
-    // 2. Buscar confrontos da Copa
-    const { data: confrontosCopa, error: confrontosError } = await supabase
-      .from("copa_confrontos")
-      .select(`
-        id,
-        equipe1_id,
-        equipe2_id,
-        equipe1:equipes!copa_confrontos_equipe1_id_fkey(id, nome, logo_url),
-        equipe2:equipes!copa_confrontos_equipe2_id_fkey(id, nome, logo_url)
-      `)
-      .eq("rodada_id", rodada.id);
+    // O que não depende dos confrontos já começa agora, em paralelo com as
+    // consultas abaixo: pontuados, partidas e o cache de escalações.
+    const cartolaPromise = Promise.allSettled([
+      buscarJson("https://api.cartola.globo.com/atletas/pontuados"),
+      buscarJson(`https://api.cartola.globo.com/partidas/${rodadaCartola}`),
+    ]);
+    const cacheTimesPromise = lerCacheTimes(rodadaCartola);
+    cartolaPromise.then(() => cronometro.marcar("cartola"));
+    cacheTimesPromise.then(() => cronometro.marcar("cache"));
+
+    // 2. Buscar confrontos da Copa e os jogadores (filtrados por equipe abaixo)
+    const [
+      { data: confrontosCopa, error: confrontosError },
+      { data: allJogadores },
+    ] = await Promise.all([
+      supabase
+        .from("copa_confrontos")
+        .select(`
+          id,
+          equipe1_id,
+          equipe2_id,
+          equipe1:equipes!copa_confrontos_equipe1_id_fkey(id, nome, logo_url),
+          equipe2:equipes!copa_confrontos_equipe2_id_fkey(id, nome, logo_url)
+        `)
+        .eq("rodada_id", rodada.id),
+      supabase
+        .from("jogadores")
+        .select("*")
+        .not("equipe_id", "is", null),
+    ]);
+
+    cronometro.marcar("confrontos");
 
     if (confrontosError) {
       throw new Error(`Erro ao buscar confrontos copa: ${confrontosError.message}`);
     }
 
-    // 3. Collect all equipe IDs and fetch their jogadores (all 7 including coringa)
+    // 3. Collect all equipe IDs and keep their jogadores (all 7 including coringa)
     const equipesIds = new Set<string>();
     confrontosCopa?.forEach((c: any) => {
       if (c.equipe1_id) equipesIds.add(c.equipe1_id);
       if (c.equipe2_id) equipesIds.add(c.equipe2_id);
     });
 
-    const { data: allJogadores } = await supabase
-      .from("jogadores")
-      .select("*")
-      .in("equipe_id", Array.from(equipesIds));
-
-    // Filter jogadores valid for this rodada_cartola
+    // Filter jogadores of these equipes valid for this rodada_cartola
     const jogadores = (allJogadores || []).filter((j: any) => {
+      if (!equipesIds.has(j.equipe_id)) return false;
       const entrada = j.rodada_entrada ?? 1;
       const saida = j.rodada_saida;
       // Valid if: entrada <= rodadaCartola AND (no saida OR saida >= rodadaCartola)
@@ -179,16 +159,15 @@ serve(async (req) => {
     const todosJogadores = new Map<string, any>();
     jogadores.forEach((j: any) => todosJogadores.set(j.id, j));
 
-    // 5. Buscar no Cartola tudo ao mesmo tempo: pontuados, partidas e o time
-    // de cada jogador (com limite de requisições simultâneas)
+    // 5. Times de cada jogador (cache + Cartola para os que faltam), junto com
+    // pontuados e partidas que já estavam em andamento
     console.log("Buscando dados do Cartola...");
     const [[pontuadosResult, partidasResult], timesBuscados] = await Promise.all([
-      Promise.allSettled([
-        buscarJson("https://api.cartola.globo.com/atletas/pontuados"),
-        buscarJson(`https://api.cartola.globo.com/partidas/${rodadaCartola}`),
-      ]),
-      buscarTimes(todosJogadores),
+      cartolaPromise,
+      buscarTimes(todosJogadores, rodadaCartola, cacheTimesPromise),
     ]);
+
+    cronometro.marcar("times");
 
     let atletasPontuados: Record<string, AtletaPontuado> = {};
     if (pontuadosResult.status === "fulfilled") {
@@ -261,11 +240,8 @@ serve(async (req) => {
         if (r.foto) fotoMap.set(r.atleta_id, r.foto);
       }
 
-      if (!escalou) {
-        pontuacoesParciais.set(jogadorId, { pontuacao: 0, escalou: false, detalhes: null });
-        continue;
-      }
-
+      // Na Copa o time conta mesmo sem escalar: o Cartola mantém a escalação
+      // anterior e pontua normalmente. `escalou` fica só como informação.
       const time: TimeCartola = {
         atletas: data.atletas || [],
         reservas: data.reservas || [],
@@ -278,7 +254,7 @@ serve(async (req) => {
       const resultado = calcularPontuacaoTime(time, atletasPontuados, clubesComJogoIniciado, clubesJogoInvalido, clubeAbreviacao, apelidoMap, fotoMap);
       pontuacoesParciais.set(jogadorId, {
         pontuacao: arredondar2Decimais(resultado.total),
-        escalou: true,
+        escalou,
         detalhes: resultado,
       });
     }
@@ -334,6 +310,7 @@ serve(async (req) => {
       });
     }
 
+    cronometro.marcar("total");
     return new Response(
       JSON.stringify({
         success: true,
@@ -341,7 +318,7 @@ serve(async (req) => {
         confrontos: resultados,
         atualizado_em: new Date().toISOString(),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json", "Server-Timing": cronometro.header() } }
     );
   } catch (error) {
     console.error("[INTERNAL] Erro geral:", error);

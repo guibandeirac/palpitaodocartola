@@ -21,6 +21,8 @@ import { RefreshCw, Radio, Clock, ArrowLeft, Trophy } from "lucide-react";
 const CopaParciais = () => {
   const { data: rodadas = [], isLoading: isLoadingRodadas } = useCopaRodadas();
   const { data, isLoading, error, fetchParciais, autoRefresh, toggleAutoRefresh } = useCopaParciais();
+  // Esqueleto só no primeiro carregamento; nas atualizações os cards continuam na tela
+  const mostrarEsqueleto = isLoading && !data;
   const [selectedRodada, setSelectedRodada] = useState<string | null>(null);
 
   const rodadasEmAndamento = rodadas.filter((r) => r.status === "em_andamento");
@@ -127,7 +129,7 @@ const CopaParciais = () => {
                 onCheckedChange={handleToggleAutoRefresh}
                 disabled={!selectedRodada}
               />
-              <span className="text-xs text-muted-foreground">Auto (5min)</span>
+              <span className="text-xs text-muted-foreground">Auto (3min)</span>
             </div>
           </div>
         </div>
@@ -148,7 +150,7 @@ const CopaParciais = () => {
         )}
 
         {/* Loading */}
-        {isLoading && (
+        {mostrarEsqueleto && (
           <div className="grid gap-6 md:grid-cols-2">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-64 w-full" />
@@ -157,7 +159,7 @@ const CopaParciais = () => {
         )}
 
         {/* Results */}
-        {!isLoading && data?.confrontos && (
+        {!mostrarEsqueleto && data?.confrontos && (
           <div className="grid gap-6 md:grid-cols-2">
             {data.confrontos.map((confronto) => (
               <CopaParcialConfrontoCard key={confronto.id} confronto={confronto} />
@@ -166,7 +168,7 @@ const CopaParciais = () => {
         )}
 
         {/* No data */}
-        {!isLoading && !data && !error && rodadasEmAndamento.length > 0 && (
+        {!mostrarEsqueleto && !data && !error && rodadasEmAndamento.length > 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
               Selecione uma rodada e clique em "Atualizar" para ver as parciais
@@ -174,7 +176,7 @@ const CopaParciais = () => {
           </div>
         )}
 
-        {!isLoading && !data && !error && rodadasEmAndamento.length === 0 && !isLoadingRodadas && (
+        {!mostrarEsqueleto && !data && !error && rodadasEmAndamento.length === 0 && !isLoadingRodadas && (
           <div className="text-center py-12">
             <Radio className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
