@@ -29,6 +29,19 @@ export async function buscarJson(url: string): Promise<any> {
   return await resp.json();
 }
 
+// Pontuados de uma rodada específica. /atletas/pontuados sem rodada só traz a
+// rodada em andamento (com o mercado aberto vem vazio), então pedimos a rodada
+// direto; se o Cartola ainda não tiver ela consolidada (rodada ao vivo), cai
+// no endpoint geral — desde que seja da mesma rodada.
+export async function buscarPontuados(rodadaCartola: number): Promise<any> {
+  const daRodada = await buscarJson(`https://api.cartola.globo.com/atletas/pontuados/${rodadaCartola}`);
+  if (daRodada?.atletas && Object.keys(daRodada.atletas).length > 0) return daRodada;
+
+  const atual = await buscarJson("https://api.cartola.globo.com/atletas/pontuados");
+  if (atual?.rodada === rodadaCartola) return atual;
+  return daRodada ?? { atletas: {} };
+}
+
 // Como Array.map assíncrono, mas com no máximo `limite` chamadas em andamento.
 // Mantém a ordem dos itens no resultado.
 async function mapComLimite<T, R>(itens: T[], limite: number, fn: (item: T) => Promise<R>): Promise<R[]> {

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buscarJson, buscarTimes, lerCacheTimes, criarCronometro } from "../_shared/cartola-times.ts";
+import { buscarJson, buscarPontuados, buscarTimes, lerCacheTimes, criarCronometro } from "../_shared/cartola-times.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +97,7 @@ serve(async (req) => {
     // O que não depende dos confrontos já começa agora, em paralelo com as
     // consultas abaixo: pontuados, partidas e o cache de escalações.
     const cartolaPromise = Promise.allSettled([
-      buscarJson("https://api.cartola.globo.com/atletas/pontuados"),
+      buscarPontuados(rodadaCartola),
       buscarJson(`https://api.cartola.globo.com/partidas/${rodadaCartola}`),
     ]);
     const cacheTimesPromise = lerCacheTimes(rodadaCartola);
