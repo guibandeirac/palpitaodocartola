@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buscarJson, buscarPontuados, buscarTimes, lerCacheTimes, criarCronometro } from "../_shared/cartola-times.ts";
+import { buscarJson, buscarPontuados, buscarStatusMercado, rodadaEncerrada, buscarTimes, lerCacheTimes, criarCronometro } from "../_shared/cartola-times.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +43,7 @@ interface TimeCartola {
   reserva_luxo_id?: number;
   rodada_time_id?: number;
   pontos?: number;
+  oficial?: boolean;
   pontos_campeonato?: number;
 }
 
@@ -93,9 +94,12 @@ serve(async (req) => {
     console.log(`Rodada ${rodada.numero}, Cartola: ${rodadaCartola}`);
 
     // O que não depende dos confrontos já começa agora, em paralelo com as
-    // consultas abaixo: pontuados, partidas e o cache de escalações.
+    // consultas abaixo: status do mercado, pontuados, partidas e o cache de
+    // escalações.
+    const statusPromise = buscarStatusMercado();
+    const encerradaPromise = statusPromise.then((status) => rodadaEncerrada(status, rodadaCartola));
     const cartolaPromise = Promise.allSettled([
-      buscarPontuados(rodadaCartola),
+      encerradaPromise.then((encerrada) => buscarPontuados(rodadaCartola, encerrada)),
       buscarJson(`https://api.cartola.globo.com/partidas/${rodadaCartola}`),
     ]);
     const cacheTimesPromise = lerCacheTimes(rodadaCartola);
@@ -167,10 +171,12 @@ serve(async (req) => {
     // 5. Times de cada jogador (cache + Cartola para os que faltam), junto com
     // pontuados e partidas que já estavam em andamento
     console.log("Buscando dados do Cartola...");
-    const [[pontuadosResult, partidasResult], timesBuscados] = await Promise.all([
+    const [[pontuadosResult, partidasResult], timesBuscados, encerrada] = await Promise.all([
       cartolaPromise,
-      buscarTimes(todosJogadores, rodadaCartola, cacheTimesPromise),
+      buscarTimes(todosJogadores, rodadaCartola, cacheTimesPromise, statusPromise),
+      encerradaPromise,
     ]);
+    console.log(`Rodada ${encerrada ? "encerrada" : "ao vivo"}`);
 
     cronometro.marcar("times");
 
@@ -205,8 +211,9 @@ serve(async (req) => {
             if (partida.clube_visitante_id) clubesJogoInvalido.add(partida.clube_visitante_id);
             continue;
           }
+          // Em rodada encerrada o Cartola não informa mais o periodo_tr
           const periodo = partida.periodo_tr || "";
-          if (statusJogoComecou.includes(periodo)) {
+          if (encerrada || statusJogoComecou.includes(periodo)) {
             if (partida.clube_casa_id) clubesComJogoIniciado.add(partida.clube_casa_id);
             if (partida.clube_visitante_id) clubesComJogoIniciado.add(partida.clube_visitante_id);
           }
@@ -262,6 +269,7 @@ serve(async (req) => {
             reserva_luxo_id: data.reserva_luxo_id,
             rodada_time_id: rodadaTimeId,
             pontos: data.pontos,
+            oficial: data.oficial,
             pontos_campeonato: pontosCamp,
           });
         }
@@ -458,6 +466,9 @@ function calcularPontuacaoTime(
 ): { total: number; jogadoresAtivos: JogadorAtivo[]; atletasDetalhados: any[]; reservasDetalhados: any[] } {
   const capitaoId = time.capitao_id;
   const reservaLuxoId = time.reserva_luxo_id;
+  // Escalação oficial de rodada encerrada: o Cartola já fez as substituições
+  // (quem entrou está entre os titulares) e já somou o total.
+  const escalacaoFinal = !!time.oficial;
 
   const originalAtletaIds = new Map<number, number>();
 
@@ -491,7 +502,7 @@ function calcularPontuacaoTime(
   const posicoesSubstituidas = new Set<number>();
 
   for (const titular of titulares) {
-    if (titular.jogo_comecou && !titular.entrou_em_campo && !posicoesSubstituidas.has(titular.posicao_id)) {
+    if (!escalacaoFinal && titular.jogo_comecou && !titular.entrou_em_campo && !posicoesSubstituidas.has(titular.posicao_id)) {
       const reserva = reservas.find((r) => {
         if (r.atleta_id === reservaLuxoId) return false; // Skip RL in normal subs
         const pontuado = atletasPontuados[String(r.atleta_id)];
@@ -521,7 +532,7 @@ function calcularPontuacaoTime(
 
   // 2c. Luxury reserve - Priority 1: replace non-playing titular of same position
   //                      Priority 2: replace lowest scorer if all played and RL > lowest
-  if (reservaLuxoId) {
+  if (reservaLuxoId && !escalacaoFinal) {
     const pontuadoLuxo = atletasPontuados[String(reservaLuxoId)];
     if (pontuadoLuxo && pontuadoLuxo.entrou_em_campo) {
       const luxoReservaInfo = reservas.find((r) => r.atleta_id === reservaLuxoId);
@@ -583,7 +594,9 @@ function calcularPontuacaoTime(
   }
 
   // 2e. Sum
-  const total = titulares.reduce((sum, j) => sum + j.pontuacao, 0);
+  const total = escalacaoFinal && typeof time.pontos === "number"
+    ? time.pontos
+    : titulares.reduce((sum, j) => sum + j.pontuacao, 0);
 
   // 2f. Build detailed titulares list
   // Also track which original titulares were replaced (for "↓ saiu" display)

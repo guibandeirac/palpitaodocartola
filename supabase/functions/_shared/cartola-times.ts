@@ -29,17 +29,30 @@ export async function buscarJson(url: string): Promise<any> {
   return await resp.json();
 }
 
-// Pontuados de uma rodada específica. /atletas/pontuados sem rodada só traz a
-// rodada em andamento (com o mercado aberto vem vazio), então pedimos a rodada
-// direto; se o Cartola ainda não tiver ela consolidada (rodada ao vivo), cai
-// no endpoint geral — desde que seja da mesma rodada.
-export async function buscarPontuados(rodadaCartola: number): Promise<any> {
-  const daRodada = await buscarJson(`https://api.cartola.globo.com/atletas/pontuados/${rodadaCartola}`);
-  if (daRodada?.atletas && Object.keys(daRodada.atletas).length > 0) return daRodada;
+// Status do mercado ({ rodada_atual, status_mercado }), ou null se falhar.
+export async function buscarStatusMercado(): Promise<any> {
+  try {
+    return await buscarJson("https://api.cartola.globo.com/mercado/status");
+  } catch (e) {
+    console.error("Erro ao buscar status do mercado:", e);
+    return null;
+  }
+}
 
-  const atual = await buscarJson("https://api.cartola.globo.com/atletas/pontuados");
-  if (atual?.rodada === rodadaCartola) return atual;
-  return daRodada ?? { atletas: {} };
+// A rodada já terminou quando o Cartola está numa rodada posterior — com o
+// mercado aberto, rodada_atual já é a próxima a ser jogada.
+export function rodadaEncerrada(statusMercado: any, rodadaCartola: number): boolean {
+  return !!statusMercado?.rodada_atual && rodadaCartola < statusMercado.rodada_atual;
+}
+
+// Rodada encerrada: pontuação completa da rodada. Ao vivo: /atletas/pontuados,
+// que só traz a rodada em andamento.
+export function buscarPontuados(rodadaCartola: number, encerrada: boolean): Promise<any> {
+  return buscarJson(
+    encerrada
+      ? `https://api.cartola.globo.com/atletas/pontuados/${rodadaCartola}`
+      : "https://api.cartola.globo.com/atletas/pontuados"
+  );
 }
 
 // Como Array.map assíncrono, mas com no máximo `limite` chamadas em andamento.
@@ -57,16 +70,11 @@ async function mapComLimite<T, R>(itens: T[], limite: number, fn: (item: T) => P
   return resultados;
 }
 
-// O mercado fechado da própria rodada é o único momento em que a escalação
-// está travada — só aí é seguro guardar o time no cache.
-async function podeGravarCache(rodadaCartola: number): Promise<boolean> {
-  try {
-    const status = await buscarJson("https://api.cartola.globo.com/mercado/status");
-    return status?.status_mercado === STATUS_MERCADO_FECHADO && status?.rodada_atual === rodadaCartola;
-  } catch (e) {
-    console.error("Erro ao buscar status do mercado:", e);
-    return false;
-  }
+// A escalação só está travada com o mercado fechado da própria rodada ou
+// depois que ela terminou — só aí é seguro guardar o time no cache.
+function podeGravarCache(status: any, rodadaCartola: number): boolean {
+  if (rodadaEncerrada(status, rodadaCartola)) return true;
+  return status?.status_mercado === STATUS_MERCADO_FECHADO && status?.rodada_atual === rodadaCartola;
 }
 
 // A tabela cartola_times_cache só é acessível com a service role.
@@ -81,8 +89,11 @@ function compactarAtleta(a: any) {
   return { atleta_id: a.atleta_id, apelido: a.apelido, foto: a.foto, posicao_id: a.posicao_id, clube_id: a.clube_id };
 }
 
-function compactarTime(data: any) {
+// oficial = veio de /time/id/{id}/{rodada} com a rodada encerrada: a
+// escalação já tem as substituições feitas pelo Cartola e `pontos` é o total.
+function compactarTime(data: any, oficial = !!data.oficial) {
   return {
+    oficial,
     time: { rodada_time_id: data.time?.rodada_time_id },
     pontos: data.pontos,
     pontos_campeonato: data.pontos_campeonato,
@@ -142,7 +153,8 @@ export async function lerCacheTimes(rodadaCartola: number): Promise<{ times: Map
 export async function buscarTimes(
   jogadores: Map<string, any>,
   rodadaCartola: number,
-  cachePromise = lerCacheTimes(rodadaCartola)
+  cachePromise = lerCacheTimes(rodadaCartola),
+  statusPromise = buscarStatusMercado()
 ): Promise<{ jogadorId: string; data: any }[]> {
   const lista = Array.from(jogadores);
   const { times: cache, daMemoria } = await cachePromise;
@@ -159,12 +171,15 @@ export async function buscarTimes(
   console.log(`Times no cache: ${lista.length - faltando.length}/${lista.length}`);
 
   if (faltando.length > 0) {
-    const podeGravarPromise = rodadaCartola ? podeGravarCache(rodadaCartola) : Promise.resolve(false);
+    const status = await statusPromise;
+    // Rodada encerrada: a escalação daquela rodada, não a atual
+    const oficial = rodadaEncerrada(status, rodadaCartola);
+    const sufixo = oficial ? `/${rodadaCartola}` : "";
 
     const buscados = await mapComLimite(faltando, LIMITE_REQUISICOES_SIMULTANEAS, async ([, jogador]) => {
       try {
-        const data = await buscarJson(`https://api.cartola.globo.com/time/id/${jogador.id_cartola}`);
-        return { idCartola: idDe(jogador), data: data ? compactarTime(data) : null };
+        const data = await buscarJson(`https://api.cartola.globo.com/time/id/${jogador.id_cartola}${sufixo}`);
+        return { idCartola: idDe(jogador), data: data ? compactarTime(data, oficial) : null };
       } catch (e) {
         console.error(`Erro ao buscar time de ${jogador.nome}:`, e);
         return { idCartola: idDe(jogador), data: null };
@@ -176,7 +191,7 @@ export async function buscarTimes(
     novos.forEach((dados, idCartola) => cache.set(idCartola, dados));
 
     const supabase = clienteServico();
-    if (supabase && novos.size > 0 && (await podeGravarPromise)) {
+    if (supabase && novos.size > 0 && rodadaCartola && podeGravarCache(status, rodadaCartola)) {
       const { error } = await supabase
         .from("cartola_times_cache")
         .upsert(Array.from(novos, ([idCartola, dados]) => ({ rodada_cartola: rodadaCartola, id_cartola: idCartola, dados })));
