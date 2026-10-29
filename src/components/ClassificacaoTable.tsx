@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Medal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/TeamLogo";
+import { Link } from "react-router-dom";
+import { slugClube } from "@/data/titulos";
 
 interface ClassificacaoTableProps {
   classificacao: ClassificacaoEquipe[];
@@ -86,13 +88,13 @@ export function ClassificacaoTable({
                   </TableCell>
                   <TableCell className="font-medium px-1 sm:px-4 py-2 sm:py-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-                      <div className="flex items-center gap-1.5">
+                      <Link to={`/clubes/${slugClube(item.equipe?.nome || "")}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
                         <TeamLogo logoUrl={item.equipe?.logo_url} nome={item.equipe?.nome || ""} />
                         <span className="text-xs sm:text-sm break-words">
                           {item.equipe?.nome || "Equipe desconhecida"}
                           <span className="hidden sm:inline"> {index === 0 && "👑"}</span>
                         </span>
-                      </div>
+                      </Link>
                       {index < 2 && (
                         <span className="text-[9px] sm:text-xs bg-green-500/30 text-green-400 px-1 sm:px-2 py-0.5 rounded-full font-semibold w-fit whitespace-nowrap">
                           ↑ Série A

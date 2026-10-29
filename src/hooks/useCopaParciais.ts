@@ -38,6 +38,8 @@ export function useCopaParciais() {
   const rodadaNumeroRef = useRef<number | null>(null);
 
   const fetchParciais = useCallback(async (rodadaNumero: number) => {
+    // O auto-refresh sempre acompanha a última rodada buscada
+    rodadaNumeroRef.current = rodadaNumero;
     setIsLoading(true);
     setError(null);
     // Mantém a parcial na tela durante a atualização, mas limpa ao trocar de rodada

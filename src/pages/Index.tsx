@@ -1,25 +1,28 @@
 import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { RodadaSelector } from "@/components/RodadaSelector";
-import { ConfrontosSection } from "@/components/ConfrontosSection";
+import { ParcialConfrontoCard } from "@/components/ParcialConfrontoCard";
+import { StatusRodadaBar } from "@/components/StatusRodadaBar";
 import { ClassificacaoTable } from "@/components/ClassificacaoTable";
 import { ArtilheirosTable } from "@/components/ArtilheirosTable";
 import { PontuacaoEquipesTable } from "@/components/PontuacaoEquipesTable";
 import { Footer } from "@/components/Footer";
 import { useRodadas } from "@/hooks/useRodadas";
-import { useConfrontosRodada } from "@/hooks/useConfrontosRodada";
+import { useParciais } from "@/hooks/useParciais";
 import { useClassificacao } from "@/hooks/useClassificacao";
 import { useArtilheiros } from "@/hooks/useArtilheiros";
 import { usePontuacaoEquipes } from "@/hooks/usePontuacaoEquipes";
 import { useEquipes } from "@/hooks/useEquipes";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Swords } from "lucide-react";
 
 const Index = () => {
   const [selectedRodada, setSelectedRodada] = useState<string | null>(null);
 
   const { data: rodadas = [], isLoading: isLoadingRodadas } = useRodadas();
   const { data: equipesSerieB = [] } = useEquipes("B");
-  const { data: confrontosTodos = [], isLoading: isLoadingConfrontos } =
-    useConfrontosRodada(selectedRodada);
+  const { data: parciais, isLoading: isLoadingParciais, error: erroParciais, fetchParciais, autoRefresh, toggleAutoRefresh } =
+    useParciais();
   const { data: classificacao = [], isLoading: isLoadingClassificacao } =
     useClassificacao("B");
   const { data: artilheiros = [], isLoading: isLoadingArtilheiros } =
@@ -34,12 +37,12 @@ const Index = () => {
 
   const confrontos = useMemo(
     () =>
-      confrontosTodos.filter(
+      (parciais?.confrontos ?? []).filter(
         (c) =>
           equipeSerieBIds.has(c.equipe1.id) &&
           equipeSerieBIds.has(c.equipe2.id)
       ),
-    [confrontosTodos, equipeSerieBIds]
+    [parciais, equipeSerieBIds]
   );
 
   // Filter public rodadas: only em_andamento or finalizada (Série B)
@@ -54,6 +57,23 @@ const Index = () => {
       if (finalizadas.length > 0) { setSelectedRodada(finalizadas[finalizadas.length - 1].id); return; }
     }
   }, [publicRodadas, selectedRodada]);
+
+  const rodadaAtual = publicRodadas.find((r) => r.id === selectedRodada);
+  const rodadaNumero = rodadaAtual?.numero;
+  const aoVivo = rodadaAtual?.status_b === "em_andamento";
+
+  // Ao trocar de rodada já busca o resultado (ao vivo ou final)
+  useEffect(() => {
+    if (rodadaNumero) fetchParciais(rodadaNumero);
+  }, [rodadaNumero, fetchParciais]);
+
+  // Rodada finalizada não precisa de atualização automática
+  useEffect(() => {
+    if (rodadaNumero && !aoVivo && autoRefresh) toggleAutoRefresh(rodadaNumero);
+  }, [rodadaNumero, aoVivo, autoRefresh, toggleAutoRefresh]);
+
+  // Esqueleto só no primeiro carregamento; nas atualizações os cards continuam na tela
+  const mostrarEsqueleto = !!selectedRodada && !parciais && !erroParciais;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -73,11 +93,52 @@ const Index = () => {
           <h2 className="text-xl font-semibold mb-4 text-foreground">
             Confrontos da Rodada
           </h2>
-          <ConfrontosSection
-            confrontos={confrontos}
-            isLoading={isLoadingConfrontos}
-            rodadaSelecionada={!!selectedRodada}
-          />
+          {rodadaAtual && (
+            <StatusRodadaBar
+              aoVivo={aoVivo}
+              isLoading={isLoadingParciais}
+              atualizadoEm={parciais?.atualizado_em}
+              autoRefresh={autoRefresh}
+              onRefresh={() => fetchParciais(rodadaAtual.numero)}
+              onToggleAutoRefresh={() => toggleAutoRefresh(rodadaAtual.numero)}
+            />
+          )}
+
+          {erroParciais && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6">
+              <p className="text-sm text-destructive">{erroParciais}</p>
+            </div>
+          )}
+
+          {!selectedRodada ? (
+            <div className="text-center py-12">
+              <Swords className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {isLoadingRodadas ? "Carregando rodadas..." : "Nenhuma rodada disponível no momento"}
+              </p>
+            </div>
+          ) : mostrarEsqueleto ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-64 w-full" />
+              ))}
+            </div>
+          ) : confrontos.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              {confrontos.map((confronto) => (
+                <ParcialConfrontoCard key={confronto.id} confronto={confronto} />
+              ))}
+            </div>
+          ) : (
+            parciais && (
+              <div className="text-center py-12">
+                <Swords className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  Nenhum confronto da Série B cadastrado nesta rodada
+                </p>
+              </div>
+            )
+          )}
         </section>
 
         <div className="grid gap-8 lg:grid-cols-2 mb-8">

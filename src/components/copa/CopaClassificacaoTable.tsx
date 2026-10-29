@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CopaClassificacaoRow } from "@/hooks/useCopaClassificacao";
 import { TeamLogo } from "@/components/TeamLogo";
+import { Link } from "react-router-dom";
+import { slugClube } from "@/data/titulos";
 
 const formatInt = (v: number) => String(Math.floor(v));
 
@@ -74,10 +76,10 @@ export function CopaClassificacaoTable({ classificacao, isLoading }: Props) {
                     {positionBadge(pos)}
                   </TableCell>
                   <TableCell className="font-medium text-sm whitespace-normal break-words max-w-[120px]">
-                    <div className="flex items-center gap-1.5">
+                    <Link to={`/clubes/${slugClube(row.equipe?.nome || "")}`} className="flex items-center gap-1.5 hover:text-blue-400 transition-colors">
                       <TeamLogo logoUrl={row.equipe?.logo_url} nome={row.equipe?.nome || ""} />
                       {row.equipe?.nome}
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-center font-bold">{row.pontos ?? 0}</TableCell>
                   <TableCell className="text-center text-muted-foreground">{row.jogos ?? 0}</TableCell>

@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Radio, Clock, ArrowLeft, Trophy } from "lucide-react";
+import { RefreshCw, Radio, Clock } from "lucide-react";
 
 const SerieA = () => {
   const { data: rodadas = [], isLoading: isLoadingRodadas } = useRodadas();
@@ -73,23 +73,13 @@ const SerieA = () => {
       {/* Header */}
       <header className="border-b border-orange-500/20 bg-card">
         <div className="container mx-auto px-4 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Início</span>
-            </Link>
-
+          <div className="flex items-center justify-center">
             <div className="flex items-center gap-3">
-              <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-orange-400" />
+              <img src="/logos/champions.jpg" alt="" className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-black object-cover" />
               <h1 className="text-lg sm:text-3xl font-bold tracking-tight text-foreground">
                 Champions Série A
               </h1>
             </div>
-
-            <div />
           </div>
         </div>
       </header>

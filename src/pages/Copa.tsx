@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, ArrowLeft, Radio } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,10 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCopaRodadas } from "@/hooks/useCopaRodadas";
-import { useCopaConfrontos, useCopaPontuacoes } from "@/hooks/useCopaConfrontos";
+import { useCopaParciais } from "@/hooks/useCopaParciais";
 import { useCopaClassificacao } from "@/hooks/useCopaClassificacao";
 import { useCopaPlayoffs } from "@/hooks/useCopaPlayoffs";
-import { CopaConfrontoCard } from "@/components/copa/CopaConfrontoCard";
+import { CopaParcialConfrontoCard } from "@/components/copa/CopaParcialConfrontoCard";
+import { StatusRodadaBar } from "@/components/StatusRodadaBar";
 import { CopaClassificacaoTable } from "@/components/copa/CopaClassificacaoTable";
 import { CopaPlayoffBracket } from "@/components/copa/CopaPlayoffBracket";
 
@@ -36,9 +36,8 @@ const Copa = () => {
 
   const selectedRodada = rodadas.find((r) => r.id === selectedRodadaId);
 
-  const { data: confrontos = [], isLoading: isLoadingConfrontos } =
-    useCopaConfrontos(selectedRodadaId);
-  const { data: pontuacoes = [] } = useCopaPontuacoes(selectedRodadaId);
+  const { data: parciais, isLoading: isLoadingParciais, error: erroParciais, fetchParciais, autoRefresh, toggleAutoRefresh } =
+    useCopaParciais();
   const { data: classificacao = [], isLoading: isLoadingClassificacao } =
     useCopaClassificacao();
   const { data: playoffs = [], isLoading: isLoadingPlayoffs } =
@@ -63,35 +62,35 @@ const Copa = () => {
     }
   }, [publicRodadas, selectedRodadaId]);
 
+  const rodadaNumero = selectedRodada?.numero;
+  const aoVivo = selectedRodada?.status === "em_andamento";
+
+  // Ao trocar de rodada já busca o resultado (ao vivo ou final)
+  useEffect(() => {
+    if (rodadaNumero) fetchParciais(rodadaNumero);
+  }, [rodadaNumero, fetchParciais]);
+
+  // Rodada finalizada não precisa de atualização automática
+  useEffect(() => {
+    if (rodadaNumero && !aoVivo && autoRefresh) toggleAutoRefresh(rodadaNumero);
+  }, [rodadaNumero, aoVivo, autoRefresh, toggleAutoRefresh]);
+
+  const confrontos = parciais?.confrontos ?? [];
+  // Esqueleto só no primeiro carregamento; nas atualizações os cards continuam na tela
+  const mostrarEsqueleto = !!selectedRodadaId && !parciais && !erroParciais;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-blue-500/20 bg-card">
         <div className="container mx-auto px-4 py-4 sm:py-6">
-          <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Início</span>
-            </Link>
-
+          <div className="flex items-center justify-center">
             <div className="flex items-center gap-3">
-              <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-blue-400" />
+              <img src="/logos/copa-palpitao.jpg" alt="" className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-black object-cover" />
               <h1 className="text-lg sm:text-3xl font-bold tracking-tight text-foreground">
                 Copa Palpitão
               </h1>
             </div>
-
-            <Link
-              to="/copa/parciais"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <Radio className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Parciais</span>
-              <span className="sm:hidden">🔴</span>
-            </Link>
           </div>
         </div>
       </header>
@@ -133,30 +132,43 @@ const Copa = () => {
             )}
           </h2>
 
-          {isLoadingConfrontos ? (
-            <div className="grid gap-4 md:grid-cols-2">
+          {selectedRodada && (
+            <StatusRodadaBar
+              aoVivo={aoVivo}
+              isLoading={isLoadingParciais}
+              atualizadoEm={parciais?.atualizado_em}
+              autoRefresh={autoRefresh}
+              onRefresh={() => fetchParciais(selectedRodada.numero)}
+              onToggleAutoRefresh={() => toggleAutoRefresh(selectedRodada.numero)}
+              aoVivoClassName="bg-blue-600 text-white"
+              buttonClassName="border-blue-500/20"
+            />
+          )}
+
+          {erroParciais && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6">
+              <p className="text-sm text-destructive">{erroParciais}</p>
+            </div>
+          )}
+
+          {mostrarEsqueleto ? (
+            <div className="grid gap-6 md:grid-cols-2">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-20 w-full" />
+                <Skeleton key={i} className="h-64 w-full" />
               ))}
             </div>
-          ) : confrontos.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhum confronto nesta rodada
-            </p>
+          ) : confrontos.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              {confrontos.map((confronto) => (
+                <CopaParcialConfrontoCard key={confronto.id} confronto={confronto} />
+              ))}
+            </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {confrontos.map((c) => (
-                <CopaConfrontoCard
-                  key={c.id}
-                  confronto={c}
-                  pontuacoes={pontuacoes.filter(
-                    (p) =>
-                      p.equipe_id === c.equipe1_id ||
-                      p.equipe_id === c.equipe2_id
-                  )}
-                />
-              ))}
-            </div>
+            parciais && (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum confronto nesta rodada
+              </p>
+            )
           )}
         </section>
 

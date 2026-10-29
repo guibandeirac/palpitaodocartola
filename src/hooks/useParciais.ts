@@ -85,8 +85,11 @@ export function useParciais() {
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rodadaNumeroRef = useRef<number | null>(null);
 
   const fetchParciais = useCallback(async (rodadaNumero: number) => {
+    // O auto-refresh sempre acompanha a última rodada buscada
+    rodadaNumeroRef.current = rodadaNumero;
     setIsLoading(true);
     setError(null);
     // Mantém a parcial na tela durante a atualização, mas limpa ao trocar de rodada
@@ -110,8 +113,6 @@ export function useParciais() {
   }, []);
 
   // Auto-refresh every 3 minutes (o Cartola atualiza os pontuados a cada ~3 min)
-  const rodadaNumeroRef = useRef<number | null>(null);
-
   const startAutoRefresh = useCallback(
     (rodadaNumero: number) => {
       rodadaNumeroRef.current = rodadaNumero;
