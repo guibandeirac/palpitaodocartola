@@ -34,13 +34,21 @@ const SerieA = () => {
     [equipesSerieA]
   );
 
+  // A função de parciais não traz o logo; completa com as equipes já carregadas
   const confrontosSerieA = useMemo(() => {
     if (!data?.confrontos) return [];
-    return data.confrontos.filter(
-      (c) =>
-        equipeSerieAIds.has(c.equipe1.id) && equipeSerieAIds.has(c.equipe2.id)
-    );
-  }, [data, equipeSerieAIds]);
+    const logo = (id: string) => equipesSerieA.find((e) => e.id === id)?.logo_url;
+    return data.confrontos
+      .filter(
+        (c) =>
+          equipeSerieAIds.has(c.equipe1.id) && equipeSerieAIds.has(c.equipe2.id)
+      )
+      .map((c) => ({
+        ...c,
+        equipe1: { ...c.equipe1, logo_url: logo(c.equipe1.id) },
+        equipe2: { ...c.equipe2, logo_url: logo(c.equipe2.id) },
+      }));
+  }, [data, equipesSerieA, equipeSerieAIds]);
 
   useEffect(() => {
     if (rodadasEmAndamento.length > 0 && !selectedRodada) {

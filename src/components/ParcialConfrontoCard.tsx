@@ -169,7 +169,7 @@ export function ParcialConfrontoCard({ confronto }: ParcialConfrontoCardProps) {
       <CardHeader className="bg-gradient-to-r from-secondary/50 to-secondary/30 p-3 sm:pb-6 sm:p-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
           <div className="flex-1 text-center flex flex-col items-center gap-1">
-            <TeamLogo logoUrl={(equipe1 as any)?.logo_url} nome={equipe1?.nome || ""} size="md" />
+            <TeamLogo logoUrl={equipe1?.logo_url} nome={equipe1?.nome || ""} size="md" />
             <p className={cn(
               "font-bold text-sm sm:text-xl break-words",
               vitorias_equipe1 > vitorias_equipe2 && "text-[hsl(var(--warning))]"
@@ -195,7 +195,7 @@ export function ParcialConfrontoCard({ confronto }: ParcialConfrontoCardProps) {
           </div>
 
           <div className="flex-1 text-center flex flex-col items-center gap-1">
-            <TeamLogo logoUrl={(equipe2 as any)?.logo_url} nome={equipe2?.nome || ""} size="md" />
+            <TeamLogo logoUrl={equipe2?.logo_url} nome={equipe2?.nome || ""} size="md" />
             <p className={cn(
               "font-bold text-sm sm:text-xl break-words",
               vitorias_equipe2 > vitorias_equipe1 && "text-[hsl(var(--warning))]"

@@ -35,15 +35,21 @@ const Index = () => {
     [equipesSerieB]
   );
 
-  const confrontos = useMemo(
-    () =>
-      (parciais?.confrontos ?? []).filter(
+  // A função de parciais não traz o logo; completa com as equipes já carregadas
+  const confrontos = useMemo(() => {
+    const logo = (id: string) => equipesSerieB.find((e) => e.id === id)?.logo_url;
+    return (parciais?.confrontos ?? [])
+      .filter(
         (c) =>
           equipeSerieBIds.has(c.equipe1.id) &&
           equipeSerieBIds.has(c.equipe2.id)
-      ),
-    [parciais, equipeSerieBIds]
-  );
+      )
+      .map((c) => ({
+        ...c,
+        equipe1: { ...c.equipe1, logo_url: logo(c.equipe1.id) },
+        equipe2: { ...c.equipe2, logo_url: logo(c.equipe2.id) },
+      }));
+  }, [parciais, equipesSerieB, equipeSerieBIds]);
 
   // Filter public rodadas: only em_andamento or finalizada (Série B)
   const publicRodadas = rodadas.filter(r => r.status_b === "em_andamento" || r.status_b === "finalizada");

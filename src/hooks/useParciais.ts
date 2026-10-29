@@ -63,8 +63,8 @@ export interface ConfrontoIndividualParcial {
 
 export interface ConfrontoEquipeParcial {
   id: string;
-  equipe1: { id: string; nome: string };
-  equipe2: { id: string; nome: string };
+  equipe1: { id: string; nome: string; logo_url?: string | null };
+  equipe2: { id: string; nome: string; logo_url?: string | null };
   vitorias_equipe1: number;
   vitorias_equipe2: number;
   confrontos_individuais: ConfrontoIndividualParcial[];
