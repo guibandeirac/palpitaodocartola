@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const LIMITE_REQUISICOES_SIMULTANEAS = 8;
 const STATUS_MERCADO_FECHADO = 2;
+const ESPERA_APOS_FECHAMENTO_SEG = 30 * 60;
 
 // Marca quando cada etapa terminou (ms desde o início da requisição) para o
 // header Server-Timing, visível na aba Network do navegador.
@@ -71,10 +72,15 @@ async function mapComLimite<T, R>(itens: T[], limite: number, fn: (item: T) => P
 }
 
 // A escalação só está travada com o mercado fechado da própria rodada ou
-// depois que ela terminou — só aí é seguro guardar o time no cache.
+// depois que ela terminou — só aí é seguro guardar o time no cache. Logo
+// depois do fechamento o Cartola ainda devolve, por alguns minutos, a
+// escalação da rodada anterior (já com rodada_time_id da nova), então
+// esperamos um tempo antes de gravar.
 function podeGravarCache(status: any, rodadaCartola: number): boolean {
   if (rodadaEncerrada(status, rodadaCartola)) return true;
-  return status?.status_mercado === STATUS_MERCADO_FECHADO && status?.rodada_atual === rodadaCartola;
+  if (status?.status_mercado !== STATUS_MERCADO_FECHADO || status?.rodada_atual !== rodadaCartola) return false;
+  const fechamento = status?.fechamento?.timestamp;
+  return !!fechamento && Date.now() / 1000 >= fechamento + ESPERA_APOS_FECHAMENTO_SEG;
 }
 
 // A tabela cartola_times_cache só é acessível com a service role.
